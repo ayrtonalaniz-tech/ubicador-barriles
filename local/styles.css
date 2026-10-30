@@ -197,5 +197,6 @@ tr.det td{background:var(--bg);padding:8px}
 .confirm{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-top:8px}
 .backup-warn{display:flex;gap:10px;align-items:center;justify-content:space-between;flex-wrap:wrap}
 
-.places-total{display:flex;justify-content:space-between;gap:10px;padding:10px 0 0;margin-top:4px;border-top:2px solid var(--amber);font-weight:700}
-.places-total .n{font-family:var(--f-mono);color:var(--fg);font-variant-numeric:tabular-nums}
+.places-total{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;margin-top:12px;background:var(--amber);color:var(--amber-fg);border-radius:var(--r);font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:14px}
+.places-total .n{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1;color:var(--amber-fg);font-variant-numeric:tabular-nums}
+.places .places-total span.n{color:var(--amber-fg)}
