@@ -200,3 +200,11 @@ tr.det td{background:var(--bg);padding:8px}
 .places-total{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 14px;margin-top:12px;background:var(--amber);color:var(--amber-fg);border-radius:var(--r);font-weight:800;text-transform:uppercase;letter-spacing:.04em;font-size:14px}
 .places-total .n{font-family:var(--f-display);font-weight:800;font-size:30px;line-height:1;color:var(--amber-fg);font-variant-numeric:tabular-nums}
 .places .places-total span.n{color:var(--amber-fg)}
+
+/* Usuarios (versión local) */
+.login-box{max-width:440px;margin:20px auto}
+.seg{display:flex;gap:4px;background:var(--bg);border:1px solid var(--line);border-radius:var(--r);padding:3px;margin-bottom:16px}
+.seg button{flex:1;border:0;background:transparent;color:var(--muted);font:600 14px var(--f-body);padding:7px 10px;border-radius:4px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:var(--amber);color:var(--amber-fg)}
+.muted{color:var(--muted);font-size:13px}
+body.sin-sesion nav.tabs, body.sin-sesion form.find, body.sin-sesion #btnScan{display:none}

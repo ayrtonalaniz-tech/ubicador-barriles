@@ -70,3 +70,4 @@ En `https://TU-USUARIO.github.io/NOMBRE-DEL-REPO/local/` hay una versión que **
 - La app avisa si pasaron más de 7 días sin copia.
 - Los QR de esta versión se leen con el botón **Escanear** de la app.
 - No comparte nada con la versión con Supabase.
+- **Usuarios locales:** al abrir pide **Ingresar** o **Crear usuario**. Cada usuario ve y mueve solo sus barriles, con su propio nombre de cervecería y sus copias. La contraseña se guarda cifrada (PBKDF2) y no se puede recuperar si se olvida; con una copia de seguridad se restauran los barriles en un usuario nuevo. Es una separación dentro de la app, no un cifrado de los datos del dispositivo.

@@ -23,18 +23,38 @@
   const BASE = location.origin + location.pathname.replace(/index\.html$/,"");
   const ICON_CAM = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>';
 
-  // ---------- almacenamiento ----------
-  let db = { version:1, negocio:"", lastBackup:0, lastMov:null, barriles:{} };
+  // ---------- almacenamiento (por usuario) ----------
+  // db.usuarios: { nombre: {salt, hash, creado} }   db.cuentas: { nombre: {negocio, lastBackup, lastMov, barriles} }
+  const cuentaVacia = () => ({ negocio:"", lastBackup:0, lastMov:null, barriles:{} });
+  let db = { version:2, usuarios:{}, cuentas:{}, sesion:null, sinUsuario:null };
   let storeOk = true;
   function loadDb(){
-    try{ const raw=localStorage.getItem(KEY); if(raw){ const d=JSON.parse(raw); if(d && d.barriles) db=Object.assign(db,d); } }
-    catch(e){ storeOk=false; }
+    try{
+      const raw=localStorage.getItem(KEY); if(!raw) return;
+      const d=JSON.parse(raw);
+      if(d && d.version===2){ db=Object.assign(db,d); return; }
+      if(d && d.barriles){ // datos de antes de los usuarios: quedan para el primer usuario que se cree
+        db.sinUsuario={ negocio:d.negocio||"", lastBackup:d.lastBackup||0, lastMov:d.lastMov||null, barriles:d.barriles||{} };
+      }
+    }catch(e){ storeOk=false; }
   }
   function save(){
     try{ localStorage.setItem(KEY, JSON.stringify(db)); return true; }
     catch(e){ storeOk=false; $("#storeErr").hidden=false; return false; }
   }
-  const lista = () => Object.values(db.barriles).sort((a,b)=>a.codigo.localeCompare(b.codigo,"es",{numeric:true}));
+  const yo = () => db.sesion && db.usuarios[db.sesion] ? db.sesion : null;
+  const cu = () => { const u=yo(); if(!u) return cuentaVacia(); return (db.cuentas[u] = db.cuentas[u] || cuentaVacia()); };
+  const lista = () => Object.values(cu().barriles).sort((a,b)=>a.codigo.localeCompare(b.codigo,"es",{numeric:true}));
+
+  // contraseñas: PBKDF2 (SHA-256) con sal propia por usuario; nunca se guarda la contraseña
+  const hex = buf => [...new Uint8Array(buf)].map(x=>x.toString(16).padStart(2,"0")).join("");
+  async function hashPass(pass, saltHex){
+    const enc=new TextEncoder();
+    const salt=new Uint8Array(saltHex.match(/../g).map(h=>parseInt(h,16)));
+    const key=await crypto.subtle.importKey("raw", enc.encode(pass), "PBKDF2", false, ["deriveBits"]);
+    return hex(await crypto.subtle.deriveBits({name:"PBKDF2", salt, iterations:150000, hash:"SHA-256"}, key, 256));
+  }
+  const normUser = u => String(u||"").trim().toLowerCase();
 
   // ---------- estado de pantalla ----------
   let view="barriles", fichaCode=null, fEstado=null, fLugar=null, sel=new Set();
@@ -64,10 +84,15 @@
 
   // ---------- render ----------
   function render(){
+    const logged=!!yo();
+    document.body.classList.toggle("sin-sesion", !logged);
+    $("#userBox").hidden=!logged; $("#userName").textContent=yo()||"";
+    if(!logged){ ["ficha","barriles","etiquetas","ajustes"].forEach(k=>$("#v-"+k).hidden=true); $("#v-login").hidden=false; $("#backupNote").hidden=true; renderLogin(); return; }
+    $("#v-login").hidden=true;
     const v = fichaCode ? "ficha" : view;
     document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current", String(v===b.dataset.tab)));
     ["ficha","barriles","etiquetas","ajustes"].forEach(k=>$("#v-"+k).hidden = v!==k);
-    $("#bizName").textContent = db.negocio || "";
+    $("#bizName").textContent = cu().negocio || "";
     $("#storeErr").hidden = storeOk;
     const all=lista();
     const cerv=[...new Set(all.map(b=>b.cerveza).filter(Boolean))].sort();
@@ -75,9 +100,9 @@
     $("#dl-cervezas").innerHTML=cerv.map(x=>`<option value="${esc(x)}">`).join("");
     $("#dl-lugares").innerHTML=lug.map(x=>`<option value="${esc(x)}">`).join("");
     // recordatorio de copia
-    const sinCopia = all.length>0 && (!db.lastBackup || Date.now()-db.lastBackup > BACKUP_DIAS*864e5);
+    const sinCopia = all.length>0 && (!cu().lastBackup || Date.now()-cu().lastBackup > BACKUP_DIAS*864e5);
     $("#backupNote").hidden = !sinCopia || v==="ajustes";
-    $("#backupMsg").innerHTML = db.lastBackup ? `Tu última copia de seguridad es de <b>${esc(hace(db.lastBackup))}</b>. Hacé una nueva para no perder datos.` : `<b>Todavía no hiciste ninguna copia de seguridad.</b> Si perdés este dispositivo, perdés los datos.`;
+    $("#backupMsg").innerHTML = cu().lastBackup ? `Tu última copia de seguridad es de <b>${esc(hace(cu().lastBackup))}</b>. Hacé una nueva para no perder datos.` : `<b>Todavía no hiciste ninguna copia de seguridad.</b> Si perdés este dispositivo, perdés los datos.`;
     if(v==="ficha") renderFicha();
     else if(v==="barriles") renderLista();
     else if(v==="etiquetas") renderEtiquetas();
@@ -113,12 +138,12 @@
     e.preventDefault();
     const codigo=norm($("#n-codigo").value);
     if(!/^[A-Z0-9-]+$/.test(codigo)){ $("#nuevoErr").textContent="El código solo puede tener letras, números y guiones."; return; }
-    if(db.barriles[codigo]){ $("#nuevoErr").textContent="Ya existe un barril con el código "+codigo+"."; return; }
+    if(cu().barriles[codigo]){ $("#nuevoErr").textContent="Ya existe un barril con el código "+codigo+"."; return; }
     const now=Date.now();
     const b={codigo, litros:Number($("#n-litros").value), cerveza:canon($("#n-cerveza").value, lista().map(x=>x.cerveza)), cerveceria:canon($("#n-lugar").value, ["FÁBRICA",...lista().map(x=>x.cerveceria)])||"FÁBRICA", estado:$("#n-estado").value, nota:"", actualizado:now};
     b.historial=[{fecha:now, cerveceria:b.cerveceria, cerveza:b.cerveza, estado:b.estado, nota:"Alta del barril"}];
-    db.barriles[codigo]=b;
-    if(!save()){ delete db.barriles[codigo]; $("#nuevoErr").textContent="No se pudo guardar en este dispositivo."; return; }
+    cu().barriles[codigo]=b;
+    if(!save()){ delete cu().barriles[codigo]; $("#nuevoErr").textContent="No se pudo guardar en este dispositivo."; return; }
     $("#nuevoForm").reset(); $("#n-estado").value="fabrica"; $("#n-litros").value="30"; $("#nuevoPanel").hidden=true; $("#nuevoErr").textContent="";
     toast("Barril "+codigo+" guardado"); render();
   });
@@ -126,7 +151,7 @@
   // ---------- ficha ----------
   function renderFicha(){
     const box=$("#v-ficha");
-    const b=db.barriles[fichaCode];
+    const b=cu().barriles[fichaCode];
     if(!b){
       box.dataset.code="";
       box.innerHTML=`<button class="back" type="button" id="fBack">← Todos los barriles</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec" style="justify-content:center">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 16px">No hay ningún barril con ese código en este dispositivo.</p><button class="btn primary" type="button" id="fAlta">Dar de alta ${esc(fichaCode)}</button></div>`;
@@ -139,7 +164,7 @@
     const draft={lugar:keep("m-lugar"),cerveza:keep("m-cerveza"),estado:keep("m-estado"),nota:keep("m-nota")};
     box.dataset.code=b.codigo;
     const hist=(b.historial||[]).slice().sort((a,c)=>c.fecha-a.fecha);
-    const lastMov=db.lastMov;
+    const lastMov=cu().lastMov;
     box.innerHTML=`
       <button class="back" type="button" id="fBack">← Todos los barriles</button>
       <div class="plate">
@@ -176,8 +201,8 @@
       const prev=JSON.stringify(b);
       Object.assign(b,{cerveceria:mov.cerveceria, cerveza:mov.cerveza, estado:mov.estado, nota:mov.nota, actualizado:now});
       b.historial=[mov,...(b.historial||[])].slice(0,200);
-      db.lastMov={cerveceria:mov.cerveceria, estado:mov.estado};
-      if(!save()){ db.barriles[b.codigo]=JSON.parse(prev); $("#movErr").textContent="No se pudo guardar en este dispositivo."; return; }
+      cu().lastMov={cerveceria:mov.cerveceria, estado:mov.estado};
+      if(!save()){ cu().barriles[b.codigo]=JSON.parse(prev); $("#movErr").textContent="No se pudo guardar en este dispositivo."; return; }
       box.dataset.code="";
       toast("Movimiento guardado · "+b.codigo+" → "+mov.cerveceria);
       render();
@@ -189,8 +214,8 @@
   function renderEtiquetas(){
     const list=lista();
     $("#emptyLabels").hidden=!!list.length;
-    [...sel].forEach(c=>{ if(!db.barriles[c]) sel.delete(c); });
-    $("#labels").innerHTML=list.map(b=>`<div class="lab" data-lab="${esc(b.codigo)}"><input type="checkbox" class="chk" data-c="${esc(b.codigo)}" ${sel.has(b.codigo)?"checked":""} aria-label="Incluir ${esc(b.codigo)}"><div class="q" data-q="${esc(b.codigo)}"></div><div class="c">${esc(b.codigo)}</div><div class="s">${esc(b.litros||"")} L${db.negocio?" · "+esc(db.negocio):""}</div></div>`).join("");
+    [...sel].forEach(c=>{ if(!cu().barriles[c]) sel.delete(c); });
+    $("#labels").innerHTML=list.map(b=>`<div class="lab" data-lab="${esc(b.codigo)}"><input type="checkbox" class="chk" data-c="${esc(b.codigo)}" ${sel.has(b.codigo)?"checked":""} aria-label="Incluir ${esc(b.codigo)}"><div class="q" data-q="${esc(b.codigo)}"></div><div class="c">${esc(b.codigo)}</div><div class="s">${esc(b.litros||"")} L${cu().negocio?" · "+esc(cu().negocio):""}</div></div>`).join("");
     if(window.QRCode) $("#labels").querySelectorAll("[data-q]").forEach(el=>new QRCode(el,{text:qrUrl(el.dataset.q),width:260,height:260,colorDark:"#000000",colorLight:"#ffffff",correctLevel:QRCode.CorrectLevel.M}));
     $("#labels").querySelectorAll("input[data-c]").forEach(i=>i.onchange=()=>{i.checked?sel.add(i.dataset.c):sel.delete(i.dataset.c); updSel();});
     updSel();
@@ -200,15 +225,15 @@
     $("#selAll").checked = lista().length>0 && sel.size===lista().length;
     document.querySelectorAll(".lab").forEach(l=>l.classList.toggle("skip", sel.size>0 && !sel.has(l.dataset.lab)));
   }
-  $("#selAll").onchange=e=>{ sel = e.target.checked? new Set(Object.keys(db.barriles)) : new Set(); renderEtiquetas(); };
+  $("#selAll").onchange=e=>{ sel = e.target.checked? new Set(Object.keys(cu().barriles)) : new Set(); renderEtiquetas(); };
   $("#btnImprimir").onclick=()=>window.print();
 
   // ---------- ajustes: nombre, copia, restaurar, planilla, borrar ----------
   function renderAjustes(){
-    if(document.activeElement!==$("#bizInput")) $("#bizInput").value=db.negocio||"";
-    $("#lastBackup").textContent = db.lastBackup ? "Última copia: "+fmt(db.lastBackup)+" ("+hace(db.lastBackup)+")" : "Todavía no hiciste ninguna copia.";
+    if(document.activeElement!==$("#bizInput")) $("#bizInput").value=cu().negocio||"";
+    $("#lastBackup").textContent = cu().lastBackup ? "Última copia: "+fmt(cu().lastBackup)+" ("+hace(cu().lastBackup)+")" : "Todavía no hiciste ninguna copia.";
   }
-  $("#bizForm").addEventListener("submit",e=>{ e.preventDefault(); db.negocio=normL($("#bizInput").value); save(); toast("Nombre guardado"); render(); });
+  $("#bizForm").addEventListener("submit",e=>{ e.preventDefault(); cu().negocio=normL($("#bizInput").value); save(); toast("Nombre guardado"); render(); });
 
   function bajar(nombre, contenido, tipo){
     const blob=new Blob([contenido],{type:tipo});
@@ -217,9 +242,9 @@
   }
   const hoy = () => new Date().toISOString().slice(0,10);
   function backup(){
-    const data={app:"ubicador-barriles-local", version:1, exportado:new Date().toISOString(), negocio:db.negocio, barriles:lista()};
-    bajar("barriles-copia-"+hoy()+".json", JSON.stringify(data,null,1), "application/json");
-    db.lastBackup=Date.now(); save(); toast("Copia descargada. Guardala en tu mail o en Drive."); render();
+    const data={app:"ubicador-barriles-local", version:1, usuario:yo(), exportado:new Date().toISOString(), negocio:cu().negocio, barriles:lista()};
+    bajar("barriles-copia-"+yo()+"-"+hoy()+".json", JSON.stringify(data,null,1), "application/json");
+    cu().lastBackup=Date.now(); save(); toast("Copia descargada. Guardala en tu mail o en Drive."); render();
   }
   $("#btnBackup").onclick=backup;
   $("#backupNow").onclick=backup;
@@ -243,7 +268,7 @@
   $("#restoreYes").onclick=()=>{
     if(!pendiente) return;
     const prev=JSON.stringify(db);
-    db.barriles=pendiente.barriles; if(pendiente.negocio) db.negocio=pendiente.negocio;
+    cu().barriles=pendiente.barriles; if(pendiente.negocio) cu().negocio=pendiente.negocio;
     if(!save()){ db=JSON.parse(prev); $("#restoreErr").textContent="No se pudo guardar en este dispositivo."; return; }
     pendiente=null; $("#restoreConfirm").hidden=true; toast("Datos restaurados"); render();
   };
@@ -258,7 +283,7 @@
 
   $("#wipeAsk").onclick=()=>{ $("#wipeCount").textContent=lista().length; $("#wipeConfirm").hidden=false; };
   $("#wipeNo").onclick=()=>{ $("#wipeConfirm").hidden=true; };
-  $("#wipeYes").onclick=()=>{ db.barriles={}; db.lastMov=null; save(); $("#wipeConfirm").hidden=true; toast("Datos borrados"); render(); };
+  $("#wipeYes").onclick=()=>{ cu().barriles={}; cu().lastMov=null; save(); $("#wipeConfirm").hidden=true; toast("Datos borrados"); render(); };
 
   // ---------- escanear QR (sin internet: usa el lector incluido) ----------
   let scanStream=null, scanTimer=null, detector=null;
@@ -303,6 +328,51 @@
   $("#scanClose").onclick=stopScan;
   document.addEventListener("visibilitychange",()=>{ if(document.hidden) stopScan(); });
   document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("#scanView").hidden) stopScan(); });
+
+  // ---------- usuarios ----------
+  let loginModo="ingresar";
+  function renderLogin(){
+    const hay=Object.keys(db.usuarios).length>0;
+    if(!hay) loginModo="crear";
+    $("#loginTabs").hidden=!hay;
+    document.querySelectorAll("#loginTabs button").forEach(b=>b.setAttribute("aria-pressed", String(b.dataset.m===loginModo)));
+    $("#lgTitle").textContent = loginModo==="crear" ? (hay?"Crear usuario":"Creá tu usuario") : "Ingresar";
+    $("#lgPass2Box").hidden = loginModo!=="crear";
+    $("#lgSubmit").textContent = loginModo==="crear" ? "Crear usuario" : "Ingresar";
+    $("#lgPass").autocomplete = loginModo==="crear" ? "new-password" : "current-password";
+    const n=db.sinUsuario?Object.keys(db.sinUsuario.barriles).length:0;
+    $("#lgLegacy").hidden = !(loginModo==="crear" && n);
+    $("#lgLegacy").innerHTML = n ? `Este dispositivo ya tiene <b>${n}</b> barril${n===1?"":"es"} cargado${n===1?"":"s"}: van a quedar en el primer usuario que se cree.` : "";
+    $("#lgHint").textContent = loginModo==="crear" ? "Cada usuario ve solo sus barriles. Si te olvidás la contraseña no se puede recuperar: hacé copias de seguridad." : "";
+  }
+  document.querySelectorAll("#loginTabs button").forEach(b=>b.onclick=()=>{ loginModo=b.dataset.m; $("#lgErr").textContent=""; renderLogin(); $("#lgUser").focus(); });
+  $("#lgForm").addEventListener("submit",async e=>{
+    e.preventDefault(); const err=$("#lgErr"); err.textContent="";
+    const u=normUser($("#lgUser").value), p=$("#lgPass").value;
+    if(!window.crypto||!crypto.subtle){ err.textContent="Este navegador no permite crear usuarios. Abrí la app instalada o desde la dirección con https."; return; }
+    const btn=$("#lgSubmit"); btn.disabled=true;
+    try{
+      if(loginModo==="crear"){
+        if(!/^[a-z0-9._-]{3,20}$/.test(u)){ err.textContent="El usuario tiene que tener entre 3 y 20 letras o números, sin espacios."; return; }
+        if(db.usuarios[u]){ err.textContent="Ya existe un usuario con ese nombre en este dispositivo."; return; }
+        if(p.length<4){ err.textContent="La contraseña tiene que tener al menos 4 caracteres."; return; }
+        if(p!==$("#lgPass2").value){ err.textContent="Las contraseñas no coinciden."; return; }
+        const salt=hex(crypto.getRandomValues(new Uint8Array(16)));
+        db.usuarios[u]={ salt, hash:await hashPass(p,salt), creado:Date.now() };
+        db.cuentas[u]= db.sinUsuario && Object.keys(db.usuarios).length===1 ? db.sinUsuario : cuentaVacia();
+        if(Object.keys(db.usuarios).length===1) db.sinUsuario=null;
+        db.sesion=u;
+        if(!save()){ delete db.usuarios[u]; delete db.cuentas[u]; db.sesion=null; err.textContent="No se pudo guardar en este dispositivo."; return; }
+        toast("Usuario "+u+" creado");
+      } else {
+        const rec=db.usuarios[u];
+        if(!rec || await hashPass(p,rec.salt)!==rec.hash){ err.textContent="Usuario o contraseña incorrectos."; return; }
+        db.sesion=u; save(); toast("Hola, "+u);
+      }
+      $("#lgForm").reset(); view="barriles"; render();
+    } finally { btn.disabled=false; }
+  });
+  $("#btnSalir").onclick=()=>{ stopScan(); db.sesion=null; save(); fichaCode=null; view="barriles"; sel=new Set(); loginModo="ingresar"; try{ history.replaceState(null,"",BASE); }catch(_){} render(); toast("Sesión cerrada"); };
 
   // ---------- instalar y funcionar sin internet ----------
   let installEvt=null;

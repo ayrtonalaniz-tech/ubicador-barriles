@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Barriles">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="stylesheet" href="styles.css?v=3">
+<link rel="stylesheet" href="styles.css?v=4">
 </head>
 <body>
 <header class="top">
@@ -35,6 +35,7 @@
     <div class="session">
       <button class="btn primary sm" type="button" id="btnScan"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg> Escanear</button>
       <button class="btn ghost-dark sm" type="button" id="btnInstalar" hidden>Instalar app</button>
+      <span id="userBox" hidden><span id="userName" class="mail"></span> <button class="btn ghost-dark sm" type="button" id="btnSalir">Salir</button></span>
     </div>
   </div>
 </header>
@@ -46,11 +47,31 @@
     <button class="btn sm" type="button" id="backupNow">Hacer copia ahora</button>
   </div>
 
+  <!-- INGRESO -->
+  <section id="v-login" hidden>
+    <div class="panel login-box">
+      <div class="seg" id="loginTabs" role="group" aria-label="Ingresar o crear usuario">
+        <button type="button" data-m="ingresar" aria-pressed="true">Ingresar</button>
+        <button type="button" data-m="crear" aria-pressed="false">Crear usuario</button>
+      </div>
+      <h2 class="sec" id="lgTitle">Ingresar</h2>
+      <p class="lead">Funciona sin internet. Los usuarios y los barriles quedan guardados solo en este dispositivo.</p>
+      <p class="notice" id="lgLegacy" hidden></p>
+      <form id="lgForm" class="stack" style="margin-top:14px">
+        <label class="field"><span class="label">Usuario</span><input id="lgUser" required autocomplete="username" autocapitalize="none" spellcheck="false"></label>
+        <label class="field"><span class="label">Contraseña</span><input id="lgPass" type="password" required autocomplete="current-password"></label>
+        <label class="field" id="lgPass2Box" hidden><span class="label">Repetí la contraseña</span><input id="lgPass2" type="password" autocomplete="new-password"></label>
+        <div class="row"><button class="btn primary" type="submit" id="lgSubmit">Ingresar</button><span id="lgErr" class="err"></span></div>
+        <p class="muted" id="lgHint" style="margin:0"></p>
+      </form>
+    </div>
+  </section>
+
   <!-- FICHA -->
   <section id="v-ficha" hidden></section>
 
   <!-- BARRILES -->
-  <section id="v-barriles">
+  <section id="v-barriles" hidden>
     <div class="row" style="justify-content:space-between;align-items:flex-end">
       <div>
         <h2 class="sec">Barriles</h2>
@@ -176,6 +197,6 @@
 
 <script src="vendor/qrcode.min.js"></script>
 <script src="vendor/jsQR.js" defer></script>
-<script src="app.js?v=3"></script>
+<script src="app.js?v=4"></script>
 </body>
 </html>
