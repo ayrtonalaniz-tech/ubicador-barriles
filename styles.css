@@ -214,3 +214,12 @@ body{overscroll-behavior-x:none}
   button.sort.on::after{display:inline}
 }
 @media (max-width:560px){#v-barriles .tablebox th,#v-barriles .tablebox td{padding:9px 6px;overflow-wrap:anywhere}#v-barriles .tablebox th{font-size:10.5px;letter-spacing:.05em}#v-barriles td.code{font-size:13px}}
+
+/* Botón Escanear: redondo, flotante, al alcance del pulgar */
+#btnScan{position:fixed;z-index:15;right:calc(18px + env(safe-area-inset-right,0px));bottom:calc(18px + env(safe-area-inset-bottom,0px));width:76px;height:76px;padding:0;border-radius:50%;flex-direction:column;justify-content:center;gap:3px;font:800 11px var(--f-body);letter-spacing:.04em;text-transform:uppercase;background:var(--amber);color:var(--amber-fg);border:3px solid var(--steel);box-shadow:0 6px 18px rgba(0,0,0,.35),0 0 0 2px var(--amber);order:0;margin:0}
+#btnScan svg{width:30px;height:30px;stroke-width:2.4}
+#btnScan:active{transform:scale(.94)}
+#btnScan:focus-visible{outline:3px solid var(--fg);outline-offset:3px}
+main{padding-bottom:120px}
+body.sin-sesion #btnScan{display:none}
+#btnScan{width:80px;height:80px;font-size:10px;letter-spacing:.02em;line-height:1;white-space:nowrap}
