@@ -180,8 +180,34 @@
         <div class="panel"><h3 style="font-size:17px;margin-bottom:6px">Historial</h3>
           ${rows===null?`<p style="color:var(--muted);margin:0">Cargando…</p>`:rows.length?`<ul class="hist">${rows.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")}<br>${pill(h.estado)}${h.nota?` <span style="color:var(--muted)">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">${esc(nombre(h.usuario))}</div>`:""}</div></li>`).join("")}</ul>`:`<p style="color:var(--muted);margin:0">Sin movimientos registrados.</p>`}
         </div>
-      </div>`;
+      </div>
+      ${logged()&&!isAdmin?`<div class="panel del-zone">
+        <div class="row" style="justify-content:space-between">
+          <div><h3 style="font-size:15px">Eliminar barril</h3><p class="muted" style="margin:2px 0 0">Para un barril que se perdió, se rompió o ya no se usa. Se borra junto con todo su historial y no se puede deshacer.</p></div>
+          <button class="btn danger sm" type="button" id="delAsk">Eliminar barril</button>
+        </div>
+        <form id="delForm" class="del-confirm" hidden>
+          <label class="field"><span class="label">Para confirmar, escribí el código del barril (${esc(b.codigo)})</span><input id="delCode" class="up" autocomplete="off" spellcheck="false"></label>
+          <div class="row"><button class="btn danger" type="submit" id="delYes" disabled>Eliminar ${esc(b.codigo)} definitivamente</button><button class="btn ghost" type="button" id="delNo">Cancelar</button><span id="delErr" class="err"></span></div>
+        </form>
+      </div>`:""}`;
     $("#fBack").onclick=()=>go("barriles");
+    const da=$("#delAsk");
+    if(da){
+      const df=$("#delForm"), dc=$("#delCode"), dy=$("#delYes");
+      da.onclick=()=>{ df.hidden=false; da.hidden=true; dc.value=""; dy.disabled=true; dc.focus(); };
+      $("#delNo").onclick=()=>{ df.hidden=true; da.hidden=false; $("#delErr").textContent=""; };
+      dc.oninput=()=>{ dy.disabled = norm(dc.value)!==b.codigo; };
+      df.addEventListener("submit",async e=>{
+        e.preventDefault(); if(norm(dc.value)!==b.codigo) return;
+        dy.disabled=true;
+        const {error}=await sb.from("barriles").delete().eq("codigo",b.codigo);
+        if(error){ dy.disabled=false; $("#delErr").textContent=dbErr(error); return; }
+        toast("Barril "+b.codigo+" eliminado");
+        barriles=barriles.filter(x=>x.codigo!==b.codigo); box.dataset.code="";
+        go("barriles"); load();
+      });
+    }
     const fl=$("#fLogin"); if(fl) fl.onclick=e=>{e.preventDefault(); view="login"; fichaReturn=b.codigo; fichaCode=null; render();};
     const rp=$("#mRepeat"); if(rp) rp.onclick=()=>{ $("#m-lugar").value=lastMov.cerveceria; $("#m-estado").value=lastMov.estado; rp.classList.add("on"); };
     const sn=$("#mScanNext"); if(sn) sn.onclick=startScan;

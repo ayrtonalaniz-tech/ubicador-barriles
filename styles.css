@@ -186,3 +186,9 @@ button.sort.on{color:var(--fg)}
 button.sort.on[data-dir="asc"]::after{content:"▲";opacity:1;color:var(--amber-ink);font-size:9px}
 button.sort.on[data-dir="desc"]::after{content:"▼";opacity:1;color:var(--amber-ink);font-size:9px}
 button.sort:focus-visible{outline:2px solid var(--amber-ink);outline-offset:2px;border-radius:2px}
+
+/* Eliminar barril */
+.del-zone{margin-top:28px;border-style:dashed;border-color:color-mix(in srgb,var(--danger) 45%,var(--line));background:transparent}
+.del-confirm{display:flex;flex-direction:column;gap:12px;margin-top:14px;padding-top:14px;border-top:1px solid var(--line)}
+.del-confirm .field{max-width:360px}
+.btn.danger:disabled{opacity:.45}
