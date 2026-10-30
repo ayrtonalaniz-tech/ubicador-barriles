@@ -1,6 +1,6 @@
 // Guarda la "cáscara" de la app para que abra rápido y se pueda instalar.
 // Los datos de los barriles siempre se piden en vivo a Supabase.
-const CACHE = "barriles-v8";
+const CACHE = "barriles-v9";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {

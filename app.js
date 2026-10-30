@@ -55,10 +55,13 @@
   function render(){
     if(!ready) return;
     $("#loading").hidden=true;
-    const v = fichaCode ? "ficha" : (view==="etiquetas" && !logged() ? "barriles" : view);
-    document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current", String(v===b.dataset.tab)));
-    ["ficha","barriles","etiquetas","login"].forEach(k=>$("#v-"+k).hidden = v!==k);
+    let v = fichaCode ? "ficha" : (view==="etiquetas" && (!logged()||isAdmin) ? "barriles" : view);
+    if(v==="barriles" && isAdmin) v="control";
+    $("#tabBarriles").textContent = isAdmin ? "Control" : "Barriles";
+    document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current", String(v===b.dataset.tab || (v==="control"&&b.dataset.tab==="barriles"))));
+    ["ficha","barriles","etiquetas","login","control"].forEach(k=>$("#v-"+k).hidden = v!==k);
     document.querySelectorAll("[data-auth]").forEach(el=>el.hidden=!logged());
+    document.querySelector('[data-tab="etiquetas"]').hidden = !logged() || isAdmin;
     $("#btnNuevo").hidden = !logged() || isAdmin;
     $("#btnLogin").hidden=logged(); $("#userBox").hidden=!logged();
     $("#userMail").textContent = session ? nombre(session.user.email) : "";
@@ -69,6 +72,7 @@
     if(v==="ficha") renderFicha();
     else if(v==="barriles") renderLista();
     else if(v==="etiquetas") renderEtiquetas();
+    else if(v==="control") renderControl();
   }
 
   const hace_h = h => new Date(Date.now()-h*3600e3).toISOString();
@@ -80,15 +84,6 @@
   function renderLista(){
     const demo=!logged(), all=demo?DEMO:barriles;
     $("#demoNote").hidden=!demo;
-    $("#adminPanel").hidden=!isAdmin;
-    if(isAdmin){
-      const by={}; all.forEach(b=>{ const k=nombre(b.dueno)||"sin cuenta"; (by[k]=by[k]||{t:0,servicio:0,retirar:0,fabrica:0,limpieza:0}); by[k].t++; by[k][b.estado]=(by[k][b.estado]||0)+1; });
-      $("#admTotal").textContent=all.length;
-      $("#admClientes").textContent=Object.keys(by).length+(Object.keys(by).length===1?" cliente":" clientes");
-      const ks=Object.keys(by).sort((a,b)=>by[b].t-by[a].t||a.localeCompare(b));
-      $("#admBody").innerHTML = ks.length ? ks.map(k=>`<tr data-k="${esc(k)}" class="${fCuenta===k?"sel":""}"><td><b>${esc(k)}</b></td><td class="num"><b>${by[k].t}</b></td>${ESTADOS.map(e=>`<td class="num">${by[k][e.k]||0}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="6" style="color:var(--muted)">Todavía ningún cliente cargó barriles.</td></tr>`;
-      $("#admBody").querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=()=>{ fCuenta = fCuenta===tr.dataset.k?null:tr.dataset.k; renderLista(); });
-    } else fCuenta=null;
     const list = fCuenta ? all.filter(b=>(nombre(b.dueno)||"sin cuenta")===fCuenta) : all;
     const counts={}; list.forEach(b=>counts[b.estado]=(counts[b.estado]||0)+1);
     $("#summary").innerHTML = ESTADOS.map(e=>`<button type="button" class="sum" data-st="${e.k}" aria-pressed="${fEstado===e.k}"><b>${counts[e.k]||0}</b>${pill(e.k)}</button>`).join("");
@@ -145,7 +140,7 @@
     const b=barriles.find(x=>x.codigo===fichaCode);
     if(!b){
       box.dataset.code="";
-      box.innerHTML=`<button class="back" type="button" id="fBack">← Todos los barriles</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec" style="justify-content:center">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 0">No hay ningún barril con ese código en tu cuenta.</p></div>`;
+      box.innerHTML=`<button class="back" type="button" id="fBack">← ${isAdmin?"Volver al control":"Todos los barriles"}</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec" style="justify-content:center">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 0">No hay ningún barril con ese código en tu cuenta.</p></div>`;
       $("#fBack").onclick=()=>go("barriles"); return;
     }
     if(hist.code!==b.codigo) loadHist(b.codigo);
@@ -155,7 +150,7 @@
     box.dataset.code=b.codigo;
     const draft={lugar:keep("m-lugar"),cerveza:keep("m-cerveza"),estado:keep("m-estado"),nota:keep("m-nota")};
     box.innerHTML=`
-      <button class="back" type="button" id="fBack">← Todos los barriles</button>
+      <button class="back" type="button" id="fBack">← ${isAdmin?"Volver al control":"Todos los barriles"}</button>
       <div class="plate">
         <div class="code">BARRIL ${esc(b.codigo)} · ${esc(b.litros||"")} L</div>
         <div class="label" style="color:color-mix(in srgb,var(--steel-fg) 60%,transparent);margin-top:14px">Está en</div>
@@ -197,6 +192,64 @@
       hist={code:null,rows:null}; await load();
     });
   }
+
+  // ---------- control (administrador) ----------
+  const DIAS = 864e5;
+  const ALERTA = { retirar:7, limpieza:7, quieto:45 };
+  let actividad=[], ctlOpen=null;
+  const cliente = b => nombre(b.dueno)||"sin cuenta";
+  const dias = v => Math.floor((Date.now()-ms(v))/DIAS);
+  function renderControl(){
+    const all=barriles;
+    const lit = all.filter(b=>b.estado==="servicio").reduce((t,b)=>t+(Number(b.litros)||0),0);
+    const by={};
+    all.forEach(b=>{ const k=cliente(b); const c=(by[k]=by[k]||{t:0,servicio:0,retirar:0,fabrica:0,limpieza:0,ult:0,items:[]}); c.t++; c[b.estado]=(c[b.estado]||0)+1; c.ult=Math.max(c.ult,ms(b.actualizado)); c.items.push(b); });
+    const ks=Object.keys(by).sort((a,b)=>by[b].t-by[a].t||a.localeCompare(b));
+    const cnt = k => all.filter(b=>b.estado===k).length;
+    $("#kpis").innerHTML = [
+      ["Barriles registrados", all.length, ""],
+      ["Clientes", ks.length, ""],
+      ["En servicio", cnt("servicio"), lit? lit.toLocaleString("es-AR")+" L en bares":""],
+      ["Para retirar", cnt("retirar"), cnt("retirar")?"vacíos esperando":""]
+    ].map(([l,n,sub],i)=>`<div class="kpi${i===3&&n?" warn":""}"><div class="label">${l}</div><b>${n}</b><span>${esc(sub)}</span></div>`).join("");
+
+    $("#ctlClientes").innerHTML = ks.length ? ks.map(k=>{
+      const c=by[k];
+      const row=`<tr class="cli${ctlOpen===k?" sel":""}" data-k="${esc(k)}"><td><b>${esc(k)}</b></td><td class="num"><b>${c.t}</b></td>${ESTADOS.map(e=>`<td class="num${e.k==="retirar"&&c.retirar?" w":""}">${c[e.k]||0}</td>`).join("")}<td class="muted">${esc(hace(new Date(c.ult).toISOString()))}</td></tr>`;
+      return row;
+    }).join("") : `<tr><td colspan="7" class="muted">Todavía ningún cliente cargó barriles.</td></tr>`;
+    $("#ctlClientes").querySelectorAll("tr.cli").forEach(tr=>tr.onclick=()=>{ ctlOpen = ctlOpen===tr.dataset.k?null:tr.dataset.k; renderControl(); });
+    const det=$("#ctlDet"), c=ctlOpen&&by[ctlOpen];
+    det.hidden=!c;
+    det.innerHTML = c ? `<div class="label" style="margin-bottom:6px">Barriles de ${esc(ctlOpen)}</div>`+c.items.sort((a,b)=>a.codigo.localeCompare(b.codigo,"es",{numeric:true})).map(b=>`<button type="button" data-c="${esc(b.codigo)}"><span class="mono">${esc(b.codigo)}</span><span>${esc(b.cerveceria||"—")}</span><span>${esc(b.cerveza||"—")}</span>${pill(b.estado)}</button>`).join("") : "";
+    det.querySelectorAll("button").forEach(bt=>bt.onclick=()=>openFicha(bt.dataset.c));
+
+    const al=[];
+    all.forEach(b=>{
+      const d=dias(b.actualizado), who=cliente(b);
+      if(b.estado==="retirar" && d>=ALERTA.retirar) al.push({n:d+100, c:b.codigo, t:`Vacío en <b>${esc(b.cerveceria)}</b> hace ${d} días sin retirar`, who});
+      else if(b.estado==="limpieza" && d>=ALERTA.limpieza) al.push({n:d+50, c:b.codigo, t:`En limpieza hace ${d} días`, who});
+      else if(d>=ALERTA.quieto) al.push({n:d, c:b.codigo, t:`Sin movimientos hace ${d} días (${esc(estadoTxt(b.estado).toLowerCase())}, en ${esc(b.cerveceria||"—")})`, who});
+    });
+    al.sort((a,b)=>b.n-a.n);
+    $("#ctlAlertas").innerHTML = al.length ? al.slice(0,12).map(a=>`<li><button type="button" data-c="${esc(a.c)}"><span class="mono">${esc(a.c)}</span> <span class="who">${esc(a.who)}</span><br>${a.t}</button></li>`).join("")
+      : `<li class="ok">Sin alertas. Ningún barril vacío lleva más de ${ALERTA.retirar} días sin retirar y ninguno está quieto hace más de ${ALERTA.quieto} días.</li>`;
+    $("#ctlAlertas").querySelectorAll("button[data-c]").forEach(bt=>bt.onclick=()=>openFicha(bt.dataset.c));
+
+    const cod2cli={}; all.forEach(b=>cod2cli[b.codigo]=cliente(b));
+    $("#ctlActividad").innerHTML = actividad.length ? actividad.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><button type="button" class="lnk mono" data-c="${esc(h.codigo)}">${esc(h.codigo)}</button> <span class="who">${esc(cod2cli[h.codigo]||"")}</span><br><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")} ${pill(h.estado)}${h.nota?` <span class="muted">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">por ${esc(nombre(h.usuario))}</div>`:""}</div></li>`).join("")
+      : `<li class="muted" style="display:block">Todavía no hay movimientos.</li>`;
+    $("#ctlActividad").querySelectorAll("button[data-c]").forEach(bt=>bt.onclick=()=>openFicha(bt.dataset.c));
+  }
+  $("#btnCsv").onclick=()=>{
+    const q=v=>`"${String(v==null?"":v).replace(/"/g,'""')}"`;
+    const lines=[["Código","Cliente","Litros","Cerveza","Ubicación","Estado","Actualizado"].map(q).join(";")]
+      .concat(barriles.map(b=>[b.codigo,cliente(b),b.litros,b.cerveza,b.cerveceria,estadoTxt(b.estado),fmt(b.actualizado)].map(q).join(";")));
+    const blob=new Blob(["﻿"+lines.join("\r\n")],{type:"text/csv;charset=utf-8"});
+    const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="barriles-"+new Date().toISOString().slice(0,10)+".csv";
+    document.body.appendChild(a); a.click(); setTimeout(()=>{URL.revokeObjectURL(a.href); a.remove();},500);
+    toast("Planilla descargada");
+  };
 
   // ---------- etiquetas ----------
   const qrUrl = c => BASE + "?b=" + encodeURIComponent(c);
@@ -297,7 +350,8 @@
     if(logged()){ const r=await sb.rpc("is_admin"); isAdmin = !r.error && r.data===true; } else isAdmin=false;
     $("#adminBadge").hidden=!isAdmin;
     if(!logged()){ barriles=[]; showErr(""); if(live){ sb.removeChannel(live); live=null; } ready=true; render(); return; }
-    if(!live) live=sb.channel("barriles-live").on("postgres_changes",{event:"*",schema:"public",table:"barriles"},()=>{ hist={code:null,rows:null}; load(); }).subscribe();
+    if(!live) live=sb.channel("barriles-live").on("postgres_changes",{event:"*",schema:"public",table:"barriles"},()=>{ hist={code:null,rows:null}; clearTimeout(load._t); load._t=setTimeout(load,400); }).subscribe();
+    if(isAdmin){ const r=await sb.from("movimientos").select("*").order("fecha",{ascending:false}).limit(20); actividad = r.error ? [] : r.data.map(h=>Object.assign({},h,{cerveceria:normL(h.cerveceria),cerveza:normL(h.cerveza)})); }
     const {data,error}=await sb.from("barriles").select("*");
     if(error){ showErr("No se pudieron cargar los barriles. "+(/fetch/i.test(error.message)?"Revisá la conexión a internet.":error.message)); }
     else { showErr(""); barriles=data.map(b=>Object.assign({},b,{cerveceria:normL(b.cerveceria),cerveza:normL(b.cerveza)})).sort((a,b)=>a.codigo.localeCompare(b.codigo,"es",{numeric:true})); }

@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=8">
+<link rel="stylesheet" href="styles.css?v=9">
 </head>
 <body>
 <header class="top">
@@ -25,7 +25,7 @@
       Ubicador de Barriles
     </a>
     <nav class="tabs" aria-label="Secciones">
-      <button type="button" data-tab="barriles" aria-current="true">Barriles</button>
+      <button type="button" data-tab="barriles" aria-current="true" id="tabBarriles">Barriles</button>
       <button type="button" data-tab="etiquetas" data-auth>Etiquetas QR</button>
     </nav>
     <form class="find" id="findForm">
@@ -90,14 +90,6 @@
       </form>
     </div>
 
-    <div class="panel admin-panel" id="adminPanel" hidden style="margin-top:16px">
-      <div class="row" style="justify-content:space-between;align-items:flex-end">
-        <div><div class="label">Barriles registrados</div><div class="big" id="admTotal">0</div><div class="lead" id="admClientes" style="margin:0"></div></div>
-        <span class="admin">Solo consulta</span>
-      </div>
-      <div class="tablebox" style="margin-top:14px"><table><thead><tr><th>Cliente</th><th>Total</th><th>En servicio</th><th>Para retirar</th><th>En fábrica</th><th>En limpieza</th></tr></thead><tbody id="admBody"></tbody></table></div>
-      <p class="lead" style="margin-top:8px;font-size:13px">Tocá un cliente para ver solo sus barriles en el listado de abajo.</p>
-    </div>
     <div class="notice demo-note" id="demoNote" hidden style="margin-top:16px"><b>Estos son barriles de ejemplo.</b> Ingresá con tu usuario para ver dónde están tus barriles de verdad. Cada cuenta ve solo sus barriles.</div>
     <div class="summary" id="summary"></div>
 
@@ -119,6 +111,37 @@
         <div class="label" style="margin-bottom:6px">Barriles por cervecería</div>
         <div class="places" id="places"></div>
       </aside>
+    </div>
+  </section>
+
+  <!-- CONTROL (administrador) -->
+  <section id="v-control" hidden>
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div>
+        <h2 class="sec">Control</h2>
+        <p class="lead">Resumen de todos los clientes. Vista de administrador: solo consulta.</p>
+      </div>
+      <button class="btn" type="button" id="btnCsv">Descargar planilla</button>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div class="ctl-grid">
+      <div class="panel">
+        <h3 class="ph">Clientes</h3>
+        <div class="tablebox flat"><table>
+          <thead><tr><th>Cliente</th><th class="num">Barriles</th><th class="num">En servicio</th><th class="num">Para retirar</th><th class="num">En fábrica</th><th class="num">En limpieza</th><th>Última actividad</th></tr></thead>
+          <tbody id="ctlClientes"></tbody>
+        </table></div>
+        <div class="mini" id="ctlDet" hidden></div>
+        <p class="hint">Tocá un cliente para ver sus barriles.</p>
+      </div>
+      <div class="panel">
+        <h3 class="ph">Alertas</h3>
+        <ul class="alerts" id="ctlAlertas"></ul>
+      </div>
+    </div>
+    <div class="panel" style="margin-top:20px">
+      <h3 class="ph">Actividad reciente</h3>
+      <ul class="hist" id="ctlActividad"></ul>
     </div>
   </section>
 
@@ -152,7 +175,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=8"></script>
-<script src="app.js?v=8"></script>
+<script src="config.js?v=9"></script>
+<script src="app.js?v=9"></script>
 </body>
 </html>
