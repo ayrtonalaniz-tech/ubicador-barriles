@@ -34,6 +34,9 @@
     return "No se pudo guardar: "+(err.message||"error desconocido");
   }
   const logged = () => !!session;
+  const DOMINIO = "@barriles.app";
+  const toEmail = u => { u=String(u||"").trim().toLowerCase(); return u.includes("@") ? u : u + DOMINIO; };
+  const nombre = e => String(e||"").replace(DOMINIO,"");
 
   // ---------- rutas: ?b=CODIGO (QR) o #CODIGO ----------
   function readRoute(){
@@ -57,7 +60,7 @@
     ["ficha","barriles","etiquetas","login"].forEach(k=>$("#v-"+k).hidden = v!==k);
     document.querySelectorAll("[data-auth]").forEach(el=>el.hidden=!logged());
     $("#btnLogin").hidden=logged(); $("#userBox").hidden=!logged();
-    $("#userMail").textContent = session ? session.user.email : "";
+    $("#userMail").textContent = session ? nombre(session.user.email) : "";
     const cerv=[...new Set(barriles.map(b=>b.cerveza).filter(Boolean))].sort();
     const lug=[...new Set(["FÁBRICA",...barriles.map(b=>b.cerveceria).filter(Boolean)])].sort();
     $("#dl-cervezas").innerHTML=cerv.map(x=>`<option value="${esc(x)}">`).join("");
@@ -143,7 +146,7 @@
             <div class="row"><button class="btn primary" type="submit">Guardar movimiento</button><span id="movErr" class="err"></span></div>
           </form></div>`:`<div class="panel"><p style="margin:0">Para registrar un movimiento de este barril, <a href="#login" id="fLogin">ingresá con tu usuario</a>.</p></div>`}
         <div class="panel"><h3 style="font-size:17px;margin-bottom:6px">Historial</h3>
-          ${rows===null?`<p style="color:var(--muted);margin:0">Cargando…</p>`:rows.length?`<ul class="hist">${rows.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")}<br>${pill(h.estado)}${h.nota?` <span style="color:var(--muted)">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">${esc(h.usuario)}</div>`:""}</div></li>`).join("")}</ul>`:`<p style="color:var(--muted);margin:0">Sin movimientos registrados.</p>`}
+          ${rows===null?`<p style="color:var(--muted);margin:0">Cargando…</p>`:rows.length?`<ul class="hist">${rows.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")}<br>${pill(h.estado)}${h.nota?` <span style="color:var(--muted)">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">${esc(nombre(h.usuario))}</div>`:""}</div></li>`).join("")}</ul>`:`<p style="color:var(--muted);margin:0">Sin movimientos registrados.</p>`}
         </div>
       </div>`;
     $("#fBack").onclick=()=>go("barriles");
@@ -187,8 +190,8 @@
   $("#loginCancel").onclick=()=>{ if(fichaReturn){ fichaCode=fichaReturn; fichaReturn=null; render(); } else go("barriles"); };
   $("#loginForm").addEventListener("submit",async e=>{
     e.preventDefault(); $("#loginErr").textContent="";
-    const {error}=await sb.auth.signInWithPassword({email:$("#l-mail").value.trim(), password:$("#l-pass").value});
-    if(error){ $("#loginErr").textContent = /invalid/i.test(error.message)?"Email o contraseña incorrectos.":"No se pudo ingresar: "+error.message; return; }
+    const {error}=await sb.auth.signInWithPassword({email:toEmail($("#l-mail").value), password:$("#l-pass").value});
+    if(error){ $("#loginErr").textContent = /invalid/i.test(error.message)?"Usuario o contraseña incorrectos.":"No se pudo ingresar: "+error.message; return; }
     $("#loginForm").reset(); toast("Ingresaste");
     if(fichaReturn){ fichaCode=fichaReturn; fichaReturn=null; } else view="barriles";
     render();
