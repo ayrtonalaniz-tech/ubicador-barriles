@@ -1,6 +1,6 @@
 // Guarda la "cáscara" de la app para que abra rápido y se pueda instalar.
 // Los datos de los barriles siempre se piden en vivo a Supabase.
-const CACHE = "barriles-v2";
+const CACHE = "barriles-v3";
 const SHELL = ["./", "index.html", "styles.css", "app.js", "config.js", "manifest.webmanifest", "icons/icon-192.png", "icons/icon-512.png"];
 
 self.addEventListener("install", e => {
@@ -14,7 +14,7 @@ self.addEventListener("fetch", e => {
   if (e.request.method !== "GET" || url.origin !== location.origin) return;
   // Primero la red (para recibir actualizaciones); si no hay conexión, lo guardado.
   e.respondWith(
-    fetch(e.request).then(r => {
+    fetch(e.request, { cache: "no-cache" }).then(r => {
       const copy = r.clone();
       caches.open(CACHE).then(c => c.put(e.request, copy));
       return r;
