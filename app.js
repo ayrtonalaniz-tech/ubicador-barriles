@@ -94,6 +94,7 @@
     const ls=Object.entries(byL).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
     $("#places").innerHTML = ls.length? ls.map(([l,n])=>`<button type="button" data-l="${esc(l)}" aria-pressed="${fLugar===l}"><span>${esc(l)}</span><span class="n">${n}</span></button>`).join("") : `<p style="margin:0;color:var(--muted);font-size:14px">Todavía no hay barriles ubicados.</p>`;
     $("#places").querySelectorAll("button").forEach(b=>b.onclick=()=>{fLugar = fLugar===b.dataset.l?null:b.dataset.l; renderLista();});
+    if(list.length) $("#places").insertAdjacentHTML("beforeend", `<div class="places-total"><span>Total de barriles</span><span class="n">${list.length}</span></div>`);
     const q=$("#filtro").value.trim().toLowerCase();
     const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria,nombre(b.dueno)].join(" ").toLowerCase().includes(q)));
     const ordEst=k=>ESTADOS.findIndex(e=>e.k===k);
