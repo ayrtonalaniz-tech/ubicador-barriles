@@ -178,3 +178,14 @@ tr.det td{background:var(--bg);padding:8px}
 .alerts li.ok{background:var(--ok-soft);color:var(--fg);border-left:3px solid var(--ok);border-radius:0 var(--r) var(--r) 0;padding:10px 12px;font-size:14px}
 .who{color:var(--muted);font-size:12.5px}
 .lnk{background:none;border:0;padding:0;color:var(--fg);font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:3px}
+
+/* Filtros y orden de la tabla */
+.filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+@media (max-width:520px){.filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.filters .field:last-child{grid-column:1/-1}}
+.filters select{background:var(--surface)}
+button.sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;white-space:nowrap}
+button.sort::after{content:"↕";opacity:.35;font-size:11px}
+button.sort.on{color:var(--fg)}
+button.sort.on[data-dir="asc"]::after{content:"▲";opacity:1;color:var(--amber-ink);font-size:9px}
+button.sort.on[data-dir="desc"]::after{content:"▼";opacity:1;color:var(--amber-ink);font-size:9px}
+button.sort:focus-visible{outline:2px solid var(--amber-ink);outline-offset:2px;border-radius:2px}
