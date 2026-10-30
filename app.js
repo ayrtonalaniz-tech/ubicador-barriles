@@ -369,7 +369,16 @@
     if(fichaReturn){ fichaCode=fichaReturn; fichaReturn=null; } else view="barriles";
     render();
   });
-  $("#btnLogout").onclick=async()=>{ await sb.auth.signOut(); toast("Sesión cerrada"); if(view==="etiquetas") view="barriles"; render(); };
+  $("#btnLogout").onclick=async()=>{
+    const btn=$("#btnLogout"); btn.disabled=true;
+    stopScan();
+    // "local": cierra la sesión en este dispositivo sin depender de la respuesta del servidor
+    try{ await sb.auth.signOut({scope:"local"}); }catch(_){}
+    try{ Object.keys(localStorage).filter(k=>/^sb-.*-auth-token/.test(k)).forEach(k=>localStorage.removeItem(k)); }catch(_){}
+    session=null; isAdmin=false; barriles=[]; hist={code:null,rows:null}; fichaCode=null; view="barriles";
+    try{ history.replaceState(null,"",BASE); }catch(_){}
+    btn.disabled=false; toast("Sesión cerrada"); load();
+  };
 
   // ---------- instalar ----------
   let installEvt=null;
