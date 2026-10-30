@@ -223,3 +223,15 @@ body{overscroll-behavior-x:none}
 main{padding-bottom:120px}
 body.sin-sesion #btnScan{display:none}
 #btnScan{width:80px;height:80px;font-size:10px;letter-spacing:.02em;line-height:1;white-space:nowrap}
+
+/* Celular: botón Escanear junto al título, "Nuevo barril" arriba del buscador */
+.scan-slot{display:none}
+.nuevo-slot:empty{display:none}
+@media (max-width:560px){
+  .scan-slot{display:block;flex:none;align-self:center}
+  #btnScan.inline{position:static;width:72px;height:72px;font-size:9.5px;box-shadow:0 3px 10px rgba(0,0,0,.25),0 0 0 2px var(--amber)}
+  .nuevo-slot #btnNuevo{width:100%;justify-content:center;padding-block:12px;font-size:15px}
+  #v-barriles > .row:first-child, #v-control > .row:first-child{flex-wrap:nowrap;align-items:center}
+  #v-barriles > .row:first-child > div:first-child, #v-control > .row:first-child > div:first-child{min-width:0;flex:1}
+}
+@media (max-width:560px){#v-control > .row:first-child{flex-wrap:wrap}#v-control > .row:first-child > div:first-child{flex:1 1 calc(100% - 96px)}#v-control .scan-slot{order:2}#v-control #btnCsv{order:3;width:100%;justify-content:center}}

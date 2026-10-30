@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=19">
+<link rel="stylesheet" href="styles.css?v=21">
 </head>
 <body>
 <header class="top">
@@ -70,6 +70,7 @@
         <h2 class="sec">Barriles</h2>
         <p class="lead">Dónde está cada barril y qué cerveza tiene. Tocá una fila para ver la ficha.</p>
       </div>
+      <span class="scan-slot" id="scanSlotB"></span>
       <button class="btn primary" type="button" id="btnNuevo" data-auth>+ Nuevo barril</button>
     </div>
 
@@ -95,6 +96,7 @@
 
     <div class="cols">
       <div class="stack" style="gap:10px">
+        <div id="nuevoSlot" class="nuevo-slot"></div>
         <div class="row">
           <input id="filtro" class="filter" placeholder="Filtrar por código, cerveza o cervecería" aria-label="Filtrar barriles">
           <button class="btn ghost" type="button" id="limpiarFiltros" hidden>← Atrás</button>
@@ -122,6 +124,7 @@
         <p class="lead">Resumen de todos los clientes. Vista de administrador: solo consulta.</p>
       </div>
       <button class="btn" type="button" id="btnCsv">Descargar planilla</button>
+      <span class="scan-slot" id="scanSlotC"></span>
     </div>
     <div class="kpis" id="kpis"></div>
     <div class="ctl-grid">
@@ -175,7 +178,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=19"></script>
-<script src="app.js?v=19"></script>
+<script src="config.js?v=21"></script>
+<script src="app.js?v=21"></script>
 </body>
 </html>

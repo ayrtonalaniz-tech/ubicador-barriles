@@ -53,8 +53,27 @@
   document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.tab)));
   $("#findForm").addEventListener("submit",e=>{e.preventDefault(); const c=norm($("#findInput").value); if(!c) return; openFicha(c); $("#findInput").value="";});
 
+
+  // ---------- celular: escanear junto al título y "Nuevo barril" arriba del buscador ----------
+  const mqCel = window.matchMedia("(max-width:560px)");
+  const scanHome = { el: document.getElementById("btnScan"), parent: document.getElementById("btnScan").parentNode, next: document.getElementById("btnScan").nextSibling };
+  const nuevoHome = { el: document.getElementById("btnNuevo"), parent: document.getElementById("btnNuevo").parentNode };
+  function acomodarCelular(){
+    const cel=mqCel.matches;
+    const sec=[...document.querySelectorAll("main > section")].find(x=>!x.hidden);
+    const slot= cel && sec ? sec.querySelector(".scan-slot") : null;
+    const sb=scanHome.el;
+    if(slot){ if(sb.parentNode!==slot) slot.appendChild(sb); sb.classList.add("inline"); }
+    else { if(sb.parentNode!==scanHome.parent) scanHome.parent.insertBefore(sb, scanHome.next); sb.classList.remove("inline"); }
+    const nb=nuevoHome.el, ns=document.getElementById("nuevoSlot");
+    if(cel && ns){ if(nb.parentNode!==ns) ns.appendChild(nb); }
+    else if(nb.parentNode!==nuevoHome.parent) nuevoHome.parent.appendChild(nb);
+  }
+  try{ mqCel.addEventListener("change", acomodarCelular); }catch(_){ mqCel.addListener && mqCel.addListener(acomodarCelular); }
+
   // ---------- render ----------
-  function render(){
+  function render(){ renderInner(); acomodarCelular(); }
+  function renderInner(){
     if(!ready) return;
     $("#loading").hidden=true;
     let v = fichaCode ? "ficha" : (view==="etiquetas" && (!logged()||isAdmin) ? "barriles" : view);

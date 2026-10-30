@@ -13,7 +13,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Barriles Local">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
-<link rel="stylesheet" href="styles.css?v=6">
+<link rel="stylesheet" href="styles.css?v=7">
 </head>
 <body>
 <header class="top">
@@ -77,6 +77,7 @@
         <h2 class="sec">Barriles</h2>
         <p class="lead">Dónde está cada barril y qué cerveza tiene. Todo queda guardado en este dispositivo.</p>
       </div>
+      <span class="scan-slot" id="scanSlotB"></span>
       <button class="btn primary" type="button" id="btnNuevo">+ Nuevo barril</button>
     </div>
 
@@ -101,6 +102,7 @@
 
     <div class="cols">
       <div class="stack" style="gap:10px">
+        <div id="nuevoSlot" class="nuevo-slot"></div>
         <div class="row">
           <input id="filtro" class="filter" placeholder="Filtrar por código, cerveza o cervecería" aria-label="Filtrar barriles">
           <button class="btn ghost" type="button" id="limpiarFiltros" hidden>← Atrás</button>
@@ -197,6 +199,6 @@
 
 <script src="vendor/qrcode.min.js"></script>
 <script src="vendor/jsQR.js" defer></script>
-<script src="app.js?v=4"></script>
+<script src="app.js?v=5"></script>
 </body>
 </html>
