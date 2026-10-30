@@ -16,7 +16,7 @@
   const BASE = location.origin + location.pathname.replace(/index\.html$/,"");
 
   let sb=null, session=null, barriles=[], ready=false;
-  let view="barriles", fichaCode=null, fEstado=null, fLugar=null, sel=new Set(), hist={code:null,rows:null};
+  let view="barriles", fichaCode=null, fEstado=null, fLugar=null, fCuenta=null, sel=new Set(), hist={code:null,rows:null};
 
   $("#n-estado").innerHTML = ESTADOS.map(e=>`<option value="${e.k}">${e.t}</option>`).join("");
   $("#n-estado").value="fabrica";
@@ -59,6 +59,7 @@
     document.querySelectorAll("nav.tabs button").forEach(b=>b.setAttribute("aria-current", String(v===b.dataset.tab)));
     ["ficha","barriles","etiquetas","login"].forEach(k=>$("#v-"+k).hidden = v!==k);
     document.querySelectorAll("[data-auth]").forEach(el=>el.hidden=!logged());
+    $("#btnNuevo").hidden = !logged() || isAdmin;
     $("#btnLogin").hidden=logged(); $("#userBox").hidden=!logged();
     $("#userMail").textContent = session ? nombre(session.user.email) : "";
     const cerv=[...new Set(barriles.map(b=>b.cerveza).filter(Boolean))].sort();
@@ -77,8 +78,18 @@
     {codigo:"EJ-103", litros:20, cerveza:"GOLDEN", cerveceria:"FÁBRICA",            estado:"fabrica",  actualizado:hace_h(5)}
   ];
   function renderLista(){
-    const demo=!logged(), list=demo?DEMO:barriles;
+    const demo=!logged(), all=demo?DEMO:barriles;
     $("#demoNote").hidden=!demo;
+    $("#adminPanel").hidden=!isAdmin;
+    if(isAdmin){
+      const by={}; all.forEach(b=>{ const k=nombre(b.dueno)||"sin cuenta"; (by[k]=by[k]||{t:0,servicio:0,retirar:0,fabrica:0,limpieza:0}); by[k].t++; by[k][b.estado]=(by[k][b.estado]||0)+1; });
+      $("#admTotal").textContent=all.length;
+      $("#admClientes").textContent=Object.keys(by).length+(Object.keys(by).length===1?" cliente":" clientes");
+      const ks=Object.keys(by).sort((a,b)=>by[b].t-by[a].t||a.localeCompare(b));
+      $("#admBody").innerHTML = ks.length ? ks.map(k=>`<tr data-k="${esc(k)}" class="${fCuenta===k?"sel":""}"><td><b>${esc(k)}</b></td><td class="num"><b>${by[k].t}</b></td>${ESTADOS.map(e=>`<td class="num">${by[k][e.k]||0}</td>`).join("")}</tr>`).join("") : `<tr><td colspan="6" style="color:var(--muted)">Todavía ningún cliente cargó barriles.</td></tr>`;
+      $("#admBody").querySelectorAll("tr[data-k]").forEach(tr=>tr.onclick=()=>{ fCuenta = fCuenta===tr.dataset.k?null:tr.dataset.k; renderLista(); });
+    } else fCuenta=null;
+    const list = fCuenta ? all.filter(b=>(nombre(b.dueno)||"sin cuenta")===fCuenta) : all;
     const counts={}; list.forEach(b=>counts[b.estado]=(counts[b.estado]||0)+1);
     $("#summary").innerHTML = ESTADOS.map(e=>`<button type="button" class="sum" data-st="${e.k}" aria-pressed="${fEstado===e.k}"><b>${counts[e.k]||0}</b>${pill(e.k)}</button>`).join("");
     $("#summary").querySelectorAll(".sum").forEach(b=>b.onclick=()=>{fEstado = fEstado===b.dataset.st?null:b.dataset.st; renderLista();});
@@ -89,7 +100,7 @@
     const q=$("#filtro").value.trim().toLowerCase();
     const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria,nombre(b.dueno)].join(" ").toLowerCase().includes(q)));
     $("#thCuenta").hidden=!isAdmin;
-    $("#limpiarFiltros").hidden = !(fEstado||fLugar||q);
+    $("#limpiarFiltros").hidden = !(fEstado||fLugar||q||fCuenta);
     $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"${demo?' class="demo"':""}><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td>${isAdmin?`<td class="cuenta">${esc(nombre(b.dueno)||"—")}</td>`:""}<td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
     $("#tbody").querySelectorAll("tr").forEach(tr=>tr.onclick=()=> demo ? (toast("Es un ejemplo. Ingresá para ver tus barriles."), $("#btnLogin").click()) : openFicha(tr.dataset.c));
     const em=$("#emptyList");
@@ -98,7 +109,7 @@
     else em.hidden=true;
   }
   $("#filtro").addEventListener("input",renderLista);
-  $("#limpiarFiltros").onclick=()=>{fEstado=null;fLugar=null;$("#filtro").value="";renderLista();};
+  $("#limpiarFiltros").onclick=()=>{fEstado=null;fLugar=null;fCuenta=null;$("#filtro").value="";renderLista();};
 
   $("#btnNuevo").onclick=()=>{ $("#nuevoPanel").hidden=false; $("#n-codigo").focus(); };
   $("#nuevoCancel").onclick=()=>{ $("#nuevoPanel").hidden=true; $("#nuevoErr").textContent=""; };
@@ -153,7 +164,7 @@
         <div class="meta"><span>${pill(b.estado)}</span><span>Actualizado <b>${esc(fmt(b.actualizado))}</b></span>${b.nota?`<span>Nota: <b>${esc(b.nota)}</b></span>`:""}${isAdmin&&b.dueno?`<span>Cuenta: <b>${esc(nombre(b.dueno))}</b></span>`:""}</div>
       </div>
       <div class="fgrid">
-        ${logged()?`<div class="panel"><h3 style="font-size:17px;margin-bottom:12px">Registrar movimiento</h3>
+        ${logged()&&!isAdmin?`<div class="panel"><h3 style="font-size:17px;margin-bottom:12px">Registrar movimiento</h3>
           <form id="movForm" class="stack" style="gap:12px">
             ${lastMov?`<button type="button" class="chip" id="mRepeat">↻ Repetir último: <b>${esc(lastMov.cerveceria)}</b> · ${esc(estadoTxt(lastMov.estado))}</button>`:""}
             <div class="grid-form">
@@ -163,7 +174,7 @@
             </div>
             <label class="field"><span class="label">Nota (opcional)</span><textarea id="m-nota" placeholder="Ej.: entregado a Juan, lote 0412">${esc(draft.nota||"")}</textarea></label>
             <div class="row"><button class="btn primary" type="submit">Guardar movimiento</button><button class="btn" type="button" id="mScanNext">${ICON_CAM} Escanear otro barril</button><span id="movErr" class="err"></span></div>
-          </form></div>`:`<div class="panel"><p style="margin:0">Para registrar un movimiento de este barril, <a href="#login" id="fLogin">ingresá con tu usuario</a>.</p></div>`}
+          </form></div>`:(isAdmin?`<div class="panel"><p style="margin:0"><b>Vista de administrador:</b> solo consulta. Los movimientos de este barril los registra la cuenta <b>${esc(nombre(b.dueno)||"dueña")}</b>.</p></div>`:`<div class="panel"><p style="margin:0">Para registrar un movimiento de este barril, <a href="#login" id="fLogin">ingresá con tu usuario</a>.</p></div>`)}
         <div class="panel"><h3 style="font-size:17px;margin-bottom:6px">Historial</h3>
           ${rows===null?`<p style="color:var(--muted);margin:0">Cargando…</p>`:rows.length?`<ul class="hist">${rows.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")}<br>${pill(h.estado)}${h.nota?` <span style="color:var(--muted)">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">${esc(nombre(h.usuario))}</div>`:""}</div></li>`).join("")}</ul>`:`<p style="color:var(--muted);margin:0">Sin movimientos registrados.</p>`}
         </div>

@@ -140,3 +140,21 @@ create policy "cargar movimientos" on public.movimientos for insert to authentic
 -- El QR ya no muestra fichas sin ingresar.
 drop function if exists public.ficha_barril(text);
 drop function if exists public.historial_barril(text);
+
+-- 8) El administrador solo consulta: altas, cambios y movimientos los hace únicamente el dueño.
+create or replace function public.es_dueno(c text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.barriles where codigo = c and owner = auth.uid());
+$$;
+revoke all on function public.es_dueno(text) from public;
+grant execute on function public.es_dueno(text) to authenticated;
+
+drop policy if exists "alta barriles"   on public.barriles;
+drop policy if exists "editar barriles" on public.barriles;
+drop policy if exists "borrar barriles" on public.barriles;
+create policy "alta barriles"   on public.barriles for insert to authenticated with check (owner = auth.uid() and not public.is_admin());
+create policy "editar barriles" on public.barriles for update to authenticated using (owner = auth.uid()) with check (owner = auth.uid());
+create policy "borrar barriles" on public.barriles for delete to authenticated using (owner = auth.uid());
+
+drop policy if exists "cargar movimientos" on public.movimientos;
+create policy "cargar movimientos" on public.movimientos for insert to authenticated with check (public.es_dueno(codigo));

@@ -15,7 +15,7 @@
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@600;800&family=Public+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@500;600&display=swap">
-<link rel="stylesheet" href="styles.css?v=7">
+<link rel="stylesheet" href="styles.css?v=8">
 </head>
 <body>
 <header class="top">
@@ -90,6 +90,14 @@
       </form>
     </div>
 
+    <div class="panel admin-panel" id="adminPanel" hidden style="margin-top:16px">
+      <div class="row" style="justify-content:space-between;align-items:flex-end">
+        <div><div class="label">Barriles registrados</div><div class="big" id="admTotal">0</div><div class="lead" id="admClientes" style="margin:0"></div></div>
+        <span class="admin">Solo consulta</span>
+      </div>
+      <div class="tablebox" style="margin-top:14px"><table><thead><tr><th>Cliente</th><th>Total</th><th>En servicio</th><th>Para retirar</th><th>En fábrica</th><th>En limpieza</th></tr></thead><tbody id="admBody"></tbody></table></div>
+      <p class="lead" style="margin-top:8px;font-size:13px">Tocá un cliente para ver solo sus barriles en el listado de abajo.</p>
+    </div>
     <div class="notice demo-note" id="demoNote" hidden style="margin-top:16px"><b>Estos son barriles de ejemplo.</b> Ingresá con tu usuario para ver dónde están tus barriles de verdad. Cada cuenta ve solo sus barriles.</div>
     <div class="summary" id="summary"></div>
 
@@ -144,7 +152,7 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
-<script src="config.js?v=7"></script>
-<script src="app.js?v=7"></script>
+<script src="config.js?v=8"></script>
+<script src="app.js?v=8"></script>
 </body>
 </html>

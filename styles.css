@@ -149,3 +149,7 @@ tbody tr.demo td{color:var(--muted)}
 tbody tr.demo td.code::after{content:"EJEMPLO";display:block;font:700 10px var(--f-body);letter-spacing:.1em;color:var(--amber-ink)}
 .admin{font:700 10.5px var(--f-body);letter-spacing:.1em;text-transform:uppercase;background:var(--amber);color:var(--amber-fg);border-radius:4px;padding:2px 6px}
 td.cuenta{color:var(--muted);font-size:13px}
+.admin-panel .big{font-family:var(--f-display);font-weight:800;font-size:52px;line-height:1;color:var(--fg);font-variant-numeric:tabular-nums}
+.admin-panel .big::after{content:"";display:block;width:36px;height:4px;background:var(--amber);margin:6px 0 4px}
+td.num{font-variant-numeric:tabular-nums;text-align:right}
+#admBody tr.sel td{background:var(--amber-soft)}
