@@ -208,3 +208,21 @@ tr.det td{background:var(--bg);padding:8px}
 .seg button[aria-pressed="true"]{background:var(--amber);color:var(--amber-fg)}
 .muted{color:var(--muted);font-size:13px}
 body.sin-sesion nav.tabs, body.sin-sesion form.find, body.sin-sesion #btnScan{display:none}
+
+/* Celular: sin zoom al escribir, sin corrimiento lateral y tabla que entra en la pantalla */
+html,body{max-width:100%;overflow-x:hidden;overflow-x:clip}
+body{overscroll-behavior-x:none}
+@media (max-width:768px){
+  input,select,textarea,form.find input{font-size:16px!important}
+}
+@media (max-width:560px){
+  .tablebox table{font-size:13.5px}
+  .tablebox th,.tablebox td{padding:9px 8px}
+  .tablebox th:first-child,.tablebox td:first-child{padding-left:12px}
+  .tablebox th:last-child,.tablebox td:last-child{padding-right:12px}
+  #v-barriles .tablebox th:nth-last-child(1),#v-barriles .tablebox td:nth-last-child(1){display:none}
+  #v-barriles .tablebox td .pill{font-size:11.5px;padding:2px 8px;white-space:normal}
+  button.sort::after{display:none}
+  button.sort.on::after{display:inline}
+}
+@media (max-width:560px){#v-barriles .tablebox th,#v-barriles .tablebox td{padding:9px 6px;overflow-wrap:anywhere}#v-barriles .tablebox th{font-size:10.5px;letter-spacing:.05em}#v-barriles td.code{font-size:13px}}
