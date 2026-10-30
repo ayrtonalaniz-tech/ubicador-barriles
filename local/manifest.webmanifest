@@ -1,7 +1,7 @@
 {
   "id": "./",
   "name": "Ubicador de Barriles (sin internet)",
-  "short_name": "Barriles",
+  "short_name": "Barriles Local",
   "description": "Dónde está cada barril y qué cerveza tiene. Funciona sin internet; los datos quedan en este dispositivo.",
   "lang": "es-AR",
   "start_url": "./",

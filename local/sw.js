@@ -1,6 +1,6 @@
 // Versión local: guarda toda la app en el dispositivo para que abra sin internet.
 // Primero responde con lo guardado; si hay conexión, actualiza en segundo plano.
-const CACHE = "barriles-local-v6";
+const CACHE = "barriles-local-v7";
 const SHELL = [
   "./", "index.html", "styles.css?v=4", "app.js?v=4", "manifest.webmanifest",
   "fonts/big-shoulders-display-latin-600-normal.woff2",
