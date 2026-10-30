@@ -79,3 +79,24 @@ select v.* from (values
   ('50-002', timestamptz '2026-10-30 13:18-03', 'TERRAZA','GOLDEN','servicio','', null::text)
 ) as v(codigo, fecha, cerveceria, cerveza, estado, nota, usuario)
 where not exists (select 1 from public.movimientos);
+
+-- 6) Privacidad: sin usuario solo se consulta UN barril por su código (el del QR),
+--    nunca el listado completo.
+revoke select on public.barriles, public.movimientos from anon;
+drop policy if exists "ver barriles" on public.barriles;
+create policy "ver barriles" on public.barriles for select to authenticated using (true);
+drop policy if exists "ver movimientos" on public.movimientos;
+create policy "ver movimientos" on public.movimientos for select to authenticated using (true);
+
+create or replace function public.ficha_barril(c text) returns setof public.barriles
+language sql stable security definer set search_path = public as $$
+  select * from public.barriles where codigo = upper(trim(c));
+$$;
+create or replace function public.historial_barril(c text)
+returns table (id bigint, codigo text, fecha timestamptz, cerveceria text, cerveza text, estado text, nota text, usuario text)
+language sql stable security definer set search_path = public as $$
+  select m.id, m.codigo, m.fecha, m.cerveceria, m.cerveza, m.estado, m.nota, null::text
+  from public.movimientos m where m.codigo = upper(trim(c)) order by m.fecha desc limit 40;
+$$;
+revoke all on function public.ficha_barril(text), public.historial_barril(text) from public;
+grant execute on function public.ficha_barril(text), public.historial_barril(text) to anon, authenticated;

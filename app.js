@@ -70,21 +70,29 @@
     else if(v==="etiquetas") renderEtiquetas();
   }
 
+  const hace_h = h => new Date(Date.now()-h*3600e3).toISOString();
+  const DEMO = [
+    {codigo:"EJ-101", litros:50, cerveza:"IPA",    cerveceria:"CERVECERÍA EL FARO", estado:"servicio", actualizado:hace_h(2)},
+    {codigo:"EJ-102", litros:30, cerveza:"STOUT",  cerveceria:"BAR LA ESQUINA",     estado:"retirar",  actualizado:hace_h(26)},
+    {codigo:"EJ-103", litros:20, cerveza:"GOLDEN", cerveceria:"FÁBRICA",            estado:"fabrica",  actualizado:hace_h(5)}
+  ];
   function renderLista(){
-    const counts={}; barriles.forEach(b=>counts[b.estado]=(counts[b.estado]||0)+1);
+    const demo=!logged(), list=demo?DEMO:barriles;
+    $("#demoNote").hidden=!demo;
+    const counts={}; list.forEach(b=>counts[b.estado]=(counts[b.estado]||0)+1);
     $("#summary").innerHTML = ESTADOS.map(e=>`<button type="button" class="sum" data-st="${e.k}" aria-pressed="${fEstado===e.k}"><b>${counts[e.k]||0}</b>${pill(e.k)}</button>`).join("");
     $("#summary").querySelectorAll(".sum").forEach(b=>b.onclick=()=>{fEstado = fEstado===b.dataset.st?null:b.dataset.st; renderLista();});
-    const byL={}; barriles.forEach(b=>{const l=b.cerveceria||"SIN UBICACIÓN"; byL[l]=(byL[l]||0)+1;});
+    const byL={}; list.forEach(b=>{const l=b.cerveceria||"SIN UBICACIÓN"; byL[l]=(byL[l]||0)+1;});
     const ls=Object.entries(byL).sort((a,b)=>b[1]-a[1]||a[0].localeCompare(b[0]));
     $("#places").innerHTML = ls.length? ls.map(([l,n])=>`<button type="button" data-l="${esc(l)}" aria-pressed="${fLugar===l}"><span>${esc(l)}</span><span class="n">${n}</span></button>`).join("") : `<p style="margin:0;color:var(--muted);font-size:14px">Todavía no hay barriles ubicados.</p>`;
     $("#places").querySelectorAll("button").forEach(b=>b.onclick=()=>{fLugar = fLugar===b.dataset.l?null:b.dataset.l; renderLista();});
     const q=$("#filtro").value.trim().toLowerCase();
-    const rows=barriles.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria].join(" ").toLowerCase().includes(q)));
+    const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria].join(" ").toLowerCase().includes(q)));
     $("#limpiarFiltros").hidden = !(fEstado||fLugar||q);
-    $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td><td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
-    $("#tbody").querySelectorAll("tr").forEach(tr=>tr.onclick=()=>openFicha(tr.dataset.c));
+    $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"${demo?' class="demo"':""}><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td><td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
+    $("#tbody").querySelectorAll("tr").forEach(tr=>tr.onclick=()=> demo ? (toast("Es un ejemplo. Ingresá para ver tus barriles."), $("#btnLogin").click()) : openFicha(tr.dataset.c));
     const em=$("#emptyList");
-    if(!barriles.length){ em.hidden=false; em.innerHTML=`<h3>Todavía no hay barriles</h3><p>${logged()?"Cargá el primero con <b>+ Nuevo barril</b>.":"Ingresá para cargar el primero."}</p>`; }
+    if(!list.length){ em.hidden=false; em.innerHTML=`<h3>Todavía no hay barriles</h3><p>${logged()?"Cargá el primero con <b>+ Nuevo barril</b>.":"Ingresá para cargar el primero."}</p>`; }
     else if(!rows.length){ em.hidden=false; em.innerHTML=`<p>Ningún barril coincide con el filtro.</p>`; }
     else em.hidden=true;
   }
@@ -108,15 +116,26 @@
 
   async function loadHist(code){
     hist={code,rows:null};
-    const {data,error}=await sb.from("movimientos").select("*").eq("codigo",code).order("fecha",{ascending:false}).limit(40);
+    const {data,error}= logged()
+      ? await sb.from("movimientos").select("*").eq("codigo",code).order("fecha",{ascending:false}).limit(40)
+      : await sb.rpc("historial_barril",{c:code});
     if(hist.code!==code) return;
     hist.rows = error ? [] : data;
     if(fichaCode===code) renderFicha();
   }
 
+  const pub={};
+  async function loadPub(code){
+    pub[code]="cargando";
+    const {data,error}=await sb.rpc("ficha_barril",{c:code});
+    pub[code] = error ? null : (data&&data[0] ? Object.assign({},data[0],{cerveceria:normL(data[0].cerveceria),cerveza:normL(data[0].cerveza)}) : null);
+    if(fichaCode===code) renderFicha();
+  }
   function renderFicha(){
-    const b=barriles.find(x=>x.codigo===fichaCode);
     const box=$("#v-ficha");
+    if(!logged() && pub[fichaCode]===undefined){ loadPub(fichaCode); }
+    if(!logged() && pub[fichaCode]==="cargando"){ box.innerHTML=`<div class="empty"><p>Buscando el barril ${esc(fichaCode)}…</p></div>`; return; }
+    const b= logged() ? barriles.find(x=>x.codigo===fichaCode) : pub[fichaCode];
     if(!b){
       box.innerHTML=`<button class="back" type="button" id="fBack">← Todos los barriles</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 0">No hay ningún barril registrado con ese código.</p></div>`;
       $("#fBack").onclick=()=>go("barriles"); return;
@@ -265,7 +284,10 @@
   if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
   // ---------- datos ----------
+  let live=null;
   async function load(){
+    if(!logged()){ barriles=[]; showErr(""); if(live){ sb.removeChannel(live); live=null; } ready=true; render(); return; }
+    if(!live) live=sb.channel("barriles-live").on("postgres_changes",{event:"*",schema:"public",table:"barriles"},()=>{ hist={code:null,rows:null}; load(); }).subscribe();
     const {data,error}=await sb.from("barriles").select("*");
     if(error){ showErr("No se pudieron cargar los barriles. "+(/fetch/i.test(error.message)?"Revisá la conexión a internet.":error.message)); }
     else { showErr(""); barriles=data.map(b=>Object.assign({},b,{cerveceria:normL(b.cerveceria),cerveza:normL(b.cerveza)})).sort((a,b)=>a.codigo.localeCompare(b.codigo,"es",{numeric:true})); }
@@ -278,9 +300,8 @@
     if(!window.supabase || !cfg.SUPABASE_URL || /TU-PROYECTO/.test(cfg.SUPABASE_URL)){ $("#loading").hidden=true; $("#setup").hidden=false; return; }
     sb=window.supabase.createClient(cfg.SUPABASE_URL,cfg.SUPABASE_ANON_KEY);
     ({data:{session}}=await sb.auth.getSession());
-    sb.auth.onAuthStateChange((_e,s)=>{ session=s; render(); });
+    sb.auth.onAuthStateChange((ev,s)=>{ const was=!!session; session=s; if(was!==!!s){ hist={code:null,rows:null}; load(); } else render(); });
     await load();
-    sb.channel("barriles-live").on("postgres_changes",{event:"*",schema:"public",table:"barriles"},()=>{ hist={code:null,rows:null}; load(); }).subscribe();
   }
   start();
 })();

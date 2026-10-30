@@ -145,3 +145,5 @@ td .sub{display:block;color:var(--muted);font-size:12.5px;font-family:var(--f-bo
 .chip.on{border-style:solid;background:var(--amber);color:var(--amber-fg)}
 #btnScan{font-size:14.5px}
 @media (max-width:520px){#btnScan{order:-1;margin-left:auto}}
+tbody tr.demo td{color:var(--muted)}
+tbody tr.demo td.code::after{content:"EJEMPLO";display:block;font:700 10px var(--f-body);letter-spacing:.1em;color:var(--amber-ink)}
