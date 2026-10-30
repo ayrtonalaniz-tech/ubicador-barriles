@@ -18,7 +18,7 @@
   const BASE = location.origin + location.pathname.replace(/index\.html$/,"");
 
   let sb=null, session=null, barriles=[], ready=false;
-  let view="barriles", fichaCode=null, fEstado=null, fLugar=null, fCuenta=null, fCerv=null, sortKey="codigo", sortDir=1, sel=new Set(), hist={code:null,rows:null};
+  let view="barriles", fichaCode=null, fEstado=null, fLugar=null, fCuenta=null, sortKey="codigo", sortDir=1, sel=new Set(), hist={code:null,rows:null};
 
   $("#n-estado").innerHTML = ESTADOS.map(e=>`<option value="${e.k}">${e.t}</option>`).join("");
   $("#n-estado").value="fabrica";
@@ -95,19 +95,13 @@
     $("#places").innerHTML = ls.length? ls.map(([l,n])=>`<button type="button" data-l="${esc(l)}" aria-pressed="${fLugar===l}"><span>${esc(l)}</span><span class="n">${n}</span></button>`).join("") : `<p style="margin:0;color:var(--muted);font-size:14px">Todavía no hay barriles ubicados.</p>`;
     $("#places").querySelectorAll("button").forEach(b=>b.onclick=()=>{fLugar = fLugar===b.dataset.l?null:b.dataset.l; renderLista();});
     const q=$("#filtro").value.trim().toLowerCase();
-    // desplegables de filtro (opciones según los barriles cargados)
-    const opts=(id,vals,cur,todos)=>{ const el=$(id); el.innerHTML=`<option value="">${todos}</option>`+vals.map(v=>`<option value="${esc(v.k)}"${cur===v.k?" selected":""}>${esc(v.t)}</option>`).join(""); };
-    const uniq=f=>[...new Set(list.map(f).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"es")).map(v=>({k:v,t:v}));
-    opts("#fCerv", uniq(b=>b.cerveza), fCerv, "Todas");
-    opts("#fLug", uniq(b=>b.cerveceria||"SIN UBICACIÓN"), fLugar, "Todas");
-    opts("#fEst", ESTADOS.map(e=>({k:e.k,t:e.t})), fEstado, "Todos");
-    const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!fCerv||b.cerveza===fCerv)&&(!q||[b.codigo,b.cerveza,b.cerveceria,nombre(b.dueno)].join(" ").toLowerCase().includes(q)));
+    const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria,nombre(b.dueno)].join(" ").toLowerCase().includes(q)));
     const ordEst=k=>ESTADOS.findIndex(e=>e.k===k);
     const val=b=> sortKey==="actualizado" ? ms(b.actualizado) : sortKey==="estado" ? ordEst(b.estado) : String(b[sortKey]||"");
     rows.sort((a,b)=>{ const x=val(a), y=val(b); const r = typeof x==="number" ? x-y : x.localeCompare(y,"es",{numeric:true}); return (r||a.codigo.localeCompare(b.codigo,"es",{numeric:true}))*sortDir; });
     document.querySelectorAll("button.sort").forEach(bt=>{ const on=bt.dataset.sort===sortKey; bt.classList.toggle("on",on); bt.dataset.dir = on ? (sortDir>0?"asc":"desc") : ""; bt.closest("th").setAttribute("aria-sort", on?(sortDir>0?"ascending":"descending"):"none"); });
     $("#thCuenta").hidden=!isAdmin;
-    $("#limpiarFiltros").hidden = !(fEstado||fLugar||fCerv||q||fCuenta);
+    $("#limpiarFiltros").hidden = !(fEstado||fLugar||q||fCuenta);
     $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"${demo?' class="demo"':""}><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td>${isAdmin?`<td class="cuenta">${esc(nombre(b.dueno)||"—")}</td>`:""}<td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
     $("#tbody").querySelectorAll("tr").forEach(tr=>tr.onclick=()=> demo ? (toast("Es un ejemplo. Ingresá para ver tus barriles."), $("#btnLogin").click()) : openFicha(tr.dataset.c));
     const em=$("#emptyList");
@@ -116,10 +110,7 @@
     else em.hidden=true;
   }
   $("#filtro").addEventListener("input",renderLista);
-  $("#limpiarFiltros").onclick=()=>{fEstado=null;fLugar=null;fCerv=null;fCuenta=null;$("#filtro").value="";renderLista();};
-  $("#fCerv").onchange=e=>{ fCerv=e.target.value||null; renderLista(); };
-  $("#fLug").onchange=e=>{ fLugar=e.target.value||null; renderLista(); };
-  $("#fEst").onchange=e=>{ fEstado=e.target.value||null; renderLista(); };
+  $("#limpiarFiltros").onclick=()=>{fEstado=null;fLugar=null;fCuenta=null;$("#filtro").value="";renderLista();};
   document.querySelectorAll("button.sort").forEach(bt=>bt.onclick=()=>{ const k=bt.dataset.sort; if(sortKey===k) sortDir=-sortDir; else { sortKey=k; sortDir = k==="actualizado" ? -1 : 1; } renderLista(); });
 
   $("#btnNuevo").onclick=()=>{ $("#nuevoPanel").hidden=false; $("#n-codigo").focus(); };

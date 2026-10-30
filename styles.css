@@ -179,10 +179,7 @@ tr.det td{background:var(--bg);padding:8px}
 .who{color:var(--muted);font-size:12.5px}
 .lnk{background:none;border:0;padding:0;color:var(--fg);font-weight:600;cursor:pointer;text-decoration:underline;text-decoration-color:var(--amber);text-underline-offset:3px}
 
-/* Filtros y orden de la tabla */
-.filters{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
-@media (max-width:520px){.filters{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.filters .field:last-child{grid-column:1/-1}}
-.filters select{background:var(--surface)}
+/* Orden de la tabla */
 button.sort{all:unset;cursor:pointer;display:inline-flex;align-items:center;gap:4px;font:inherit;letter-spacing:inherit;text-transform:inherit;color:inherit;white-space:nowrap}
 button.sort::after{content:"↕";opacity:.35;font-size:11px}
 button.sort.on{color:var(--fg)}
