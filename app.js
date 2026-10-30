@@ -11,6 +11,8 @@
   const esc = s => String(s==null?"":s).replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
   const norm = s => String(s||"").trim().toUpperCase();
   const normL = s => String(s||"").trim().replace(/\s+/g," ").toLocaleUpperCase("es-AR");
+  const sinTilde = s => String(s||"").normalize("NFD").replace(/[\u0300-\u036f]/g,"");
+  const canon = (v, existentes) => { const n=normL(v); if(!n) return n; const k=sinTilde(n); const hit=existentes.find(x=>x && sinTilde(x)===k); return hit||n; };
   const pill = k => `<span class="pill st-${esc(k)}">${esc(estadoTxt(k))}</span>`;
   const ms = v => v ? Date.parse(v) : 0;
   const BASE = location.origin + location.pathname.replace(/index\.html$/,"");
@@ -113,7 +115,7 @@
     const codigo=norm($("#n-codigo").value);
     if(!/^[A-Z0-9-]+$/.test(codigo)){ $("#nuevoErr").textContent="El código solo puede tener letras, números y guiones."; return; }
     if(barriles.some(b=>b.codigo===codigo)){ $("#nuevoErr").textContent="Ya existe un barril con el código "+codigo+"."; return; }
-    const d={codigo, litros:Number($("#n-litros").value), cerveza:normL($("#n-cerveza").value), cerveceria:normL($("#n-lugar").value)||"FÁBRICA", estado:$("#n-estado").value, nota:""};
+    const d={codigo, litros:Number($("#n-litros").value), cerveza:canon($("#n-cerveza").value, barriles.map(x=>x.cerveza)), cerveceria:canon($("#n-lugar").value, ["FÁBRICA",...barriles.map(x=>x.cerveceria)])||"FÁBRICA", estado:$("#n-estado").value, nota:""};
     let {error}=await sb.from("barriles").insert(d);
     if(!error) ({error}=await sb.from("movimientos").insert({codigo, cerveceria:d.cerveceria, cerveza:d.cerveza, estado:d.estado, nota:"Alta del barril"}));
     if(error){ $("#nuevoErr").textContent=dbErr(error); return; }
@@ -181,7 +183,7 @@
     const mf=$("#movForm");
     if(mf) mf.addEventListener("submit",async e=>{
       e.preventDefault();
-      const mov={codigo:b.codigo, cerveceria:normL($("#m-lugar").value), cerveza:normL($("#m-cerveza").value), estado:$("#m-estado").value, nota:$("#m-nota").value.trim()};
+      const mov={codigo:b.codigo, cerveceria:canon($("#m-lugar").value, ["FÁBRICA",...barriles.map(x=>x.cerveceria)]), cerveza:canon($("#m-cerveza").value, barriles.map(x=>x.cerveza)), estado:$("#m-estado").value, nota:$("#m-nota").value.trim()};
       const btn=mf.querySelector("button[type=submit]"); btn.disabled=true;
       let {error}=await sb.from("movimientos").insert(mov);
       if(!error) ({error}=await sb.from("barriles").update({cerveceria:mov.cerveceria, cerveza:mov.cerveza, estado:mov.estado, nota:mov.nota, actualizado:new Date().toISOString()}).eq("codigo",b.codigo));

@@ -58,3 +58,15 @@ Ingresá → **Etiquetas QR** → marcá cuáles querés (o ninguna para todas) 
 | `config.js` | Datos de conexión a Supabase |
 | `manifest.webmanifest`, `sw.js`, `icons/` | Lo que la hace instalable |
 | `supabase/schema.sql` | Tablas, permisos y datos iniciales |
+
+---
+
+## Versión sin internet (`/local/`)
+
+En `https://TU-USUARIO.github.io/NOMBRE-DEL-REPO/local/` hay una versión que **no usa internet ni cuentas**: los barriles se guardan solo en el dispositivo donde se instala. Pensada para un cliente que quiere su app propia en un único dispositivo.
+
+- Se necesita internet **solo para instalarla** la primera vez; después abre y funciona sin conexión (las fuentes y el lector de QR van incluidos).
+- **Ajustes → Copia de seguridad** descarga un archivo `.json` con todo; **Restaurar** lo vuelve a cargar. Si se pierde el dispositivo sin copia, se pierden los datos.
+- La app avisa si pasaron más de 7 días sin copia.
+- Los QR de esta versión se leen con el botón **Escanear** de la app.
+- No comparte nada con la versión con Supabase.

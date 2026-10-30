@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Barriles Local</title>
+<meta name="description" content="Dónde está cada barril y qué cerveza tiene. Funciona sin internet; los datos quedan en este dispositivo.">
+<meta name="theme-color" content="#111113">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png" type="image/png">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Barriles">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="stylesheet" href="styles.css?v=1">
+</head>
+<body>
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="./">
+      <svg width="26" height="30" viewBox="0 0 26 30" aria-hidden="true"><rect x="2" y="1" width="22" height="28" rx="4" fill="none" stroke="currentColor" stroke-width="2.2"/><path d="M2 8h22M2 22h22" stroke="currentColor" stroke-width="2.2"/><circle cx="13" cy="15" r="2.4" fill="currentColor"/></svg>
+      <span>Ubicador de Barriles<br><span class="bizname" id="bizName"></span></span>
+      <span class="local-tag">Sin internet</span>
+    </a>
+    <nav class="tabs" aria-label="Secciones">
+      <button type="button" data-tab="barriles" aria-current="true">Barriles</button>
+      <button type="button" data-tab="etiquetas">Etiquetas QR</button>
+      <button type="button" data-tab="ajustes">Ajustes</button>
+    </nav>
+    <form class="find" id="findForm">
+      <input id="findInput" placeholder="Código de barril" aria-label="Buscar barril por código" autocomplete="off">
+      <button class="btn primary sm" type="submit">Ver</button>
+    </form>
+    <div class="session">
+      <button class="btn primary sm" type="button" id="btnScan"><svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg> Escanear</button>
+      <button class="btn ghost-dark sm" type="button" id="btnInstalar" hidden>Instalar app</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <div id="storeErr" class="notice danger" hidden>Este navegador no deja guardar datos (puede ser una ventana privada). Abrí la app en una ventana normal o instalala.</div>
+  <div id="backupNote" class="notice backup-warn" hidden>
+    <span id="backupMsg"></span>
+    <button class="btn sm" type="button" id="backupNow">Hacer copia ahora</button>
+  </div>
+
+  <!-- FICHA -->
+  <section id="v-ficha" hidden></section>
+
+  <!-- BARRILES -->
+  <section id="v-barriles">
+    <div class="row" style="justify-content:space-between;align-items:flex-end">
+      <div>
+        <h2 class="sec">Barriles</h2>
+        <p class="lead">Dónde está cada barril y qué cerveza tiene. Todo queda guardado en este dispositivo.</p>
+      </div>
+      <button class="btn primary" type="button" id="btnNuevo">+ Nuevo barril</button>
+    </div>
+
+    <div class="panel" id="nuevoPanel" hidden style="margin-top:16px">
+      <form id="nuevoForm" class="stack">
+        <div class="grid-form">
+          <label class="field"><span class="label">Código</span><input id="n-codigo" class="up" required placeholder="B-001" pattern="[A-Za-z0-9\-]+" title="Solo letras, números y guiones"></label>
+          <label class="field"><span class="label">Capacidad</span><select id="n-litros"><option>20</option><option selected>30</option><option>50</option></select></label>
+          <label class="field"><span class="label">Cerveza</span><input id="n-cerveza" class="up" list="dl-cervezas" placeholder="IPA, GOLDEN, STOUT…"></label>
+          <label class="field"><span class="label">Cervecería / ubicación</span><input id="n-lugar" class="up" list="dl-lugares" placeholder="FÁBRICA"></label>
+          <label class="field"><span class="label">Estado</span><select id="n-estado"></select></label>
+        </div>
+        <div class="row">
+          <button class="btn primary" type="submit">Guardar barril</button>
+          <button class="btn ghost" type="button" id="nuevoCancel">Cancelar</button>
+          <span id="nuevoErr" class="err"></span>
+        </div>
+      </form>
+    </div>
+
+    <div class="summary" id="summary"></div>
+
+    <div class="cols">
+      <div class="stack" style="gap:10px">
+        <div class="row">
+          <input id="filtro" class="filter" placeholder="Filtrar por código, cerveza o cervecería" aria-label="Filtrar barriles">
+          <button class="btn ghost" type="button" id="limpiarFiltros" hidden>Quitar filtros</button>
+        </div>
+        <div class="tablebox">
+          <table>
+            <thead><tr><th>Barril</th><th>Cerveza</th><th>Ubicación</th><th>Estado</th><th>Actualizado</th></tr></thead>
+            <tbody id="tbody"></tbody>
+          </table>
+          <div id="emptyList" class="empty" hidden></div>
+        </div>
+      </div>
+      <aside class="panel">
+        <div class="label" style="margin-bottom:6px">Barriles por cervecería</div>
+        <div class="places" id="places"></div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- ETIQUETAS -->
+  <section id="v-etiquetas" hidden>
+    <div class="noprint">
+      <h2 class="sec">Etiquetas QR</h2>
+      <p class="lead">Elegí cuáles imprimir (si no marcás ninguna, se imprimen todas) y tocá <b>Imprimir</b>: salen 12 por hoja A4. Sin internet, los QR se leen con el botón <b>Escanear</b> de esta app.</p>
+      <div class="row" style="margin-top:16px">
+        <label class="row" style="gap:6px;cursor:pointer"><input type="checkbox" id="selAll" class="chk"> Seleccionar todas</label>
+        <span id="selCount" class="label"></span>
+        <button class="btn primary" type="button" id="btnImprimir" style="margin-left:auto">Imprimir</button>
+      </div>
+    </div>
+    <div class="labels" id="labels"></div>
+    <div id="emptyLabels" class="empty" hidden><h3>Sin barriles</h3><p>Cargá barriles en la pestaña Barriles y acá aparecen sus etiquetas.</p></div>
+  </section>
+
+  <!-- AJUSTES -->
+  <section id="v-ajustes" hidden>
+    <h2 class="sec">Ajustes</h2>
+    <p class="lead">Los datos viven solo en este dispositivo. Nadie más los ve, ni siquiera quien te instaló la app.</p>
+    <div class="set-grid">
+      <div class="panel">
+        <h3 class="ph">Nombre de la cervecería</h3>
+        <p>Aparece arriba, debajo del título.</p>
+        <form id="bizForm" class="row"><input id="bizInput" class="filter" placeholder="Ej.: CERVECERÍA DEL VALLE" maxlength="60"><button class="btn primary" type="submit">Guardar</button></form>
+      </div>
+      <div class="panel">
+        <h3 class="ph">Copia de seguridad</h3>
+        <p>Guarda un archivo con todos los barriles y su historial. Mandalo a tu mail o a Drive: si perdés el celular, con ese archivo recuperás todo.</p>
+        <button class="btn primary" type="button" id="btnBackup">Descargar copia</button>
+        <p id="lastBackup" style="margin:10px 0 0;font-size:13px"></p>
+      </div>
+      <div class="panel">
+        <h3 class="ph">Restaurar una copia</h3>
+        <p>Reemplaza los datos de este dispositivo por los del archivo de copia.</p>
+        <label class="btn" for="restoreFile" style="cursor:pointer">Elegir archivo…</label>
+        <input type="file" id="restoreFile" accept=".json,application/json" hidden>
+        <div class="confirm" id="restoreConfirm" hidden>
+          <span id="restoreInfo"></span>
+          <button class="btn primary sm" type="button" id="restoreYes">Reemplazar datos</button>
+          <button class="btn ghost sm" type="button" id="restoreNo">Cancelar</button>
+        </div>
+        <span id="restoreErr" class="err"></span>
+      </div>
+      <div class="panel">
+        <h3 class="ph">Planilla</h3>
+        <p>Descarga todos los barriles en un archivo que se abre con Excel.</p>
+        <button class="btn" type="button" id="btnCsv">Descargar planilla</button>
+      </div>
+      <div class="panel danger-zone">
+        <h3 class="ph">Borrar todo</h3>
+        <p>Elimina todos los barriles de este dispositivo. No se puede deshacer: hacé una copia antes.</p>
+        <button class="btn danger" type="button" id="wipeAsk">Borrar todos los datos</button>
+        <div class="confirm" id="wipeConfirm" hidden>
+          <span>¿Seguro? Se borran <b id="wipeCount">0</b> barriles.</span>
+          <button class="btn danger sm" type="button" id="wipeYes">Sí, borrar</button>
+          <button class="btn ghost sm" type="button" id="wipeNo">Cancelar</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <datalist id="dl-cervezas"></datalist>
+  <datalist id="dl-lugares"></datalist>
+</main>
+
+<div class="scan" id="scanView" hidden role="dialog" aria-label="Escanear QR del barril">
+  <video id="scanVideo" playsinline muted></video>
+  <div class="scan-frame" aria-hidden="true"></div>
+  <div class="scan-bar">
+    <p id="scanMsg">Apuntá la cámara al QR del barril</p>
+    <button class="btn primary" type="button" id="scanClose">Cerrar</button>
+  </div>
+</div>
+<div class="toast" id="toast" hidden></div>
+
+<script src="vendor/qrcode.min.js"></script>
+<script src="vendor/jsQR.js" defer></script>
+<script src="app.js?v=2"></script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+{
+  "id": "./",
+  "name": "Ubicador de Barriles (sin internet)",
+  "short_name": "Barriles",
+  "description": "Dónde está cada barril y qué cerveza tiene. Funciona sin internet; los datos quedan en este dispositivo.",
+  "lang": "es-AR",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#111113",
+  "theme_color": "#111113",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
