@@ -100,3 +100,43 @@ language sql stable security definer set search_path = public as $$
 $$;
 revoke all on function public.ficha_barril(text), public.historial_barril(text) from public;
 grant execute on function public.ficha_barril(text), public.historial_barril(text) to anon, authenticated;
+
+-- 7) Cuentas: cada usuario ve y mueve solo sus barriles; los administradores ven todo.
+alter table public.barriles add column if not exists owner uuid references auth.users(id) on delete set null default auth.uid();
+alter table public.barriles add column if not exists dueno text default lower(auth.jwt() ->> 'email');
+update public.barriles b set owner = u.id, dueno = u.email
+  from auth.users u where u.email = 'killerbeer@barriles.app' and b.owner is null;
+
+create table if not exists public.admins (email text primary key);
+alter table public.admins enable row level security;   -- sin políticas: nadie la lee ni la cambia desde la app
+insert into public.admins (email) values ('ayrton@barriles.app') on conflict do nothing;
+
+create or replace function public.is_admin() returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.admins where email = lower(auth.jwt() ->> 'email'));
+$$;
+create or replace function public.puede_barril(c text) returns boolean
+language sql stable security definer set search_path = public as $$
+  select exists (select 1 from public.barriles where codigo = c and (owner = auth.uid() or public.is_admin()));
+$$;
+revoke all on function public.is_admin(), public.puede_barril(text) from public;
+grant execute on function public.is_admin(), public.puede_barril(text) to authenticated;
+
+drop policy if exists "ver barriles"     on public.barriles;
+drop policy if exists "cargar barriles"  on public.barriles;
+drop policy if exists "alta barriles"    on public.barriles;
+drop policy if exists "editar barriles"  on public.barriles;
+drop policy if exists "borrar barriles"  on public.barriles;
+create policy "ver barriles"    on public.barriles for select to authenticated using (owner = auth.uid() or public.is_admin());
+create policy "alta barriles"   on public.barriles for insert to authenticated with check (owner = auth.uid() or public.is_admin());
+create policy "editar barriles" on public.barriles for update to authenticated using (owner = auth.uid() or public.is_admin()) with check (owner = auth.uid() or public.is_admin());
+create policy "borrar barriles" on public.barriles for delete to authenticated using (owner = auth.uid() or public.is_admin());
+
+drop policy if exists "ver movimientos"    on public.movimientos;
+drop policy if exists "cargar movimientos" on public.movimientos;
+create policy "ver movimientos"    on public.movimientos for select to authenticated using (public.puede_barril(codigo));
+create policy "cargar movimientos" on public.movimientos for insert to authenticated with check (public.puede_barril(codigo));
+
+-- El QR ya no muestra fichas sin ingresar.
+drop function if exists public.ficha_barril(text);
+drop function if exists public.historial_barril(text);

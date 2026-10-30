@@ -28,7 +28,7 @@
   function dbErr(err){
     console.error(err);
     if(!err) return "No se pudo guardar.";
-    if(err.code==="23505") return "Ya existe un barril con ese código.";
+    if(err.code==="23505") return "Ese código ya está registrado (puede ser de otra cuenta). Usá otro.";
     if(err.code==="42501" || /row-level security/i.test(err.message||"")) return "Tenés que ingresar para hacer cambios.";
     if(/fetch|network/i.test(err.message||"")) return "Sin conexión. Revisá internet y probá de nuevo.";
     return "No se pudo guardar: "+(err.message||"error desconocido");
@@ -87,9 +87,10 @@
     $("#places").innerHTML = ls.length? ls.map(([l,n])=>`<button type="button" data-l="${esc(l)}" aria-pressed="${fLugar===l}"><span>${esc(l)}</span><span class="n">${n}</span></button>`).join("") : `<p style="margin:0;color:var(--muted);font-size:14px">Todavía no hay barriles ubicados.</p>`;
     $("#places").querySelectorAll("button").forEach(b=>b.onclick=()=>{fLugar = fLugar===b.dataset.l?null:b.dataset.l; renderLista();});
     const q=$("#filtro").value.trim().toLowerCase();
-    const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria].join(" ").toLowerCase().includes(q)));
+    const rows=list.filter(b=>(!fEstado||b.estado===fEstado)&&(!fLugar||(b.cerveceria||"SIN UBICACIÓN")===fLugar)&&(!q||[b.codigo,b.cerveza,b.cerveceria,nombre(b.dueno)].join(" ").toLowerCase().includes(q)));
+    $("#thCuenta").hidden=!isAdmin;
     $("#limpiarFiltros").hidden = !(fEstado||fLugar||q);
-    $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"${demo?' class="demo"':""}><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td><td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
+    $("#tbody").innerHTML = rows.map(b=>`<tr data-c="${esc(b.codigo)}"${demo?' class="demo"':""}><td class="code">${esc(b.codigo)}<span class="sub">${esc(b.litros||"")} L</span></td><td>${esc(b.cerveza||"—")}</td><td>${esc(b.cerveceria||"—")}</td><td>${pill(b.estado)}</td>${isAdmin?`<td class="cuenta">${esc(nombre(b.dueno)||"—")}</td>`:""}<td style="white-space:nowrap;color:var(--muted);font-size:13px">${esc(hace(b.actualizado))}</td></tr>`).join("");
     $("#tbody").querySelectorAll("tr").forEach(tr=>tr.onclick=()=> demo ? (toast("Es un ejemplo. Ingresá para ver tus barriles."), $("#btnLogin").click()) : openFicha(tr.dataset.c));
     const em=$("#emptyList");
     if(!list.length){ em.hidden=false; em.innerHTML=`<h3>Todavía no hay barriles</h3><p>${logged()?"Cargá el primero con <b>+ Nuevo barril</b>.":"Ingresá para cargar el primero."}</p>`; }
@@ -116,28 +117,24 @@
 
   async function loadHist(code){
     hist={code,rows:null};
-    const {data,error}= logged()
-      ? await sb.from("movimientos").select("*").eq("codigo",code).order("fecha",{ascending:false}).limit(40)
-      : await sb.rpc("historial_barril",{c:code});
+    const {data,error}=await sb.from("movimientos").select("*").eq("codigo",code).order("fecha",{ascending:false}).limit(40);
     if(hist.code!==code) return;
     hist.rows = error ? [] : data;
     if(fichaCode===code) renderFicha();
   }
 
-  const pub={};
-  async function loadPub(code){
-    pub[code]="cargando";
-    const {data,error}=await sb.rpc("ficha_barril",{c:code});
-    pub[code] = error ? null : (data&&data[0] ? Object.assign({},data[0],{cerveceria:normL(data[0].cerveceria),cerveza:normL(data[0].cerveza)}) : null);
-    if(fichaCode===code) renderFicha();
-  }
   function renderFicha(){
     const box=$("#v-ficha");
-    if(!logged() && pub[fichaCode]===undefined){ loadPub(fichaCode); }
-    if(!logged() && pub[fichaCode]==="cargando"){ box.innerHTML=`<div class="empty"><p>Buscando el barril ${esc(fichaCode)}…</p></div>`; return; }
-    const b= logged() ? barriles.find(x=>x.codigo===fichaCode) : pub[fichaCode];
+    if(!logged()){
+      box.dataset.code="";
+      box.innerHTML=`<div class="panel" style="text-align:center;padding:30px;max-width:520px;margin:0 auto"><h2 class="sec" style="justify-content:center">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 16px">Para ver dónde está este barril, ingresá con la cuenta a la que pertenece.</p><button class="btn primary" type="button" id="fLoginPriv">Ingresar</button></div>`;
+      $("#fLoginPriv").onclick=()=>{ fichaReturn=fichaCode; fichaCode=null; view="login"; render(); $("#l-mail").focus(); };
+      return;
+    }
+    const b=barriles.find(x=>x.codigo===fichaCode);
     if(!b){
-      box.innerHTML=`<button class="back" type="button" id="fBack">← Todos los barriles</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 0">No hay ningún barril registrado con ese código.</p></div>`;
+      box.dataset.code="";
+      box.innerHTML=`<button class="back" type="button" id="fBack">← Todos los barriles</button><div class="panel" style="text-align:center;padding:30px"><h2 class="sec" style="justify-content:center">Barril ${esc(fichaCode)}</h2><p class="lead" style="margin:8px auto 0">No hay ningún barril con ese código en tu cuenta.</p></div>`;
       $("#fBack").onclick=()=>go("barriles"); return;
     }
     if(hist.code!==b.codigo) loadHist(b.codigo);
@@ -153,7 +150,7 @@
         <div class="label" style="color:color-mix(in srgb,var(--steel-fg) 60%,transparent);margin-top:14px">Está en</div>
         <div class="where">${esc(b.cerveceria||"Sin ubicación")}</div>
         <div class="beer">${b.cerveza?esc(b.cerveza):'<span style="opacity:.6">Sin cerveza asignada</span>'}</div>
-        <div class="meta"><span>${pill(b.estado)}</span><span>Actualizado <b>${esc(fmt(b.actualizado))}</b></span>${b.nota?`<span>Nota: <b>${esc(b.nota)}</b></span>`:""}</div>
+        <div class="meta"><span>${pill(b.estado)}</span><span>Actualizado <b>${esc(fmt(b.actualizado))}</b></span>${b.nota?`<span>Nota: <b>${esc(b.nota)}</b></span>`:""}${isAdmin&&b.dueno?`<span>Cuenta: <b>${esc(nombre(b.dueno))}</b></span>`:""}</div>
       </div>
       <div class="fgrid">
         ${logged()?`<div class="panel"><h3 style="font-size:17px;margin-bottom:12px">Registrar movimiento</h3>
@@ -284,8 +281,10 @@
   if("serviceWorker" in navigator) window.addEventListener("load",()=>navigator.serviceWorker.register("sw.js").catch(()=>{}));
 
   // ---------- datos ----------
-  let live=null;
+  let live=null, isAdmin=false;
   async function load(){
+    if(logged()){ const r=await sb.rpc("is_admin"); isAdmin = !r.error && r.data===true; } else isAdmin=false;
+    $("#adminBadge").hidden=!isAdmin;
     if(!logged()){ barriles=[]; showErr(""); if(live){ sb.removeChannel(live); live=null; } ready=true; render(); return; }
     if(!live) live=sb.channel("barriles-live").on("postgres_changes",{event:"*",schema:"public",table:"barriles"},()=>{ hist={code:null,rows:null}; load(); }).subscribe();
     const {data,error}=await sb.from("barriles").select("*");
