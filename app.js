@@ -47,7 +47,7 @@
   }
   function go(v){ view=v; fichaCode=null; history.pushState(null,"",BASE+(v==="barriles"?"":"#"+v)); render(); window.scrollTo(0,0); }
   function openFicha(c){ fichaCode=norm(c); history.pushState(null,"",BASE+"?b="+encodeURIComponent(fichaCode)); render(); window.scrollTo(0,0); }
-  window.addEventListener("popstate",()=>{readRoute(); render();});
+  window.addEventListener("popstate",()=>{ stopScan(); readRoute(); render();});
   document.querySelectorAll("nav.tabs button").forEach(b=>b.addEventListener("click",()=>go(b.dataset.tab)));
   $("#findForm").addEventListener("submit",e=>{e.preventDefault(); const c=norm($("#findInput").value); if(!c) return; openFicha(c); $("#findInput").value="";});
 
@@ -123,7 +123,9 @@
     }
     if(hist.code!==b.codigo) loadHist(b.codigo);
     const rows=hist.code===b.codigo?hist.rows:null;
-    const keep = id => { const el=document.getElementById(id); return el?el.value:null; };
+    const same = box.dataset.code===b.codigo;
+    const keep = id => { const el=same && document.getElementById(id); return el?el.value:null; };
+    box.dataset.code=b.codigo;
     const draft={lugar:keep("m-lugar"),cerveza:keep("m-cerveza"),estado:keep("m-estado"),nota:keep("m-nota")};
     box.innerHTML=`
       <button class="back" type="button" id="fBack">← Todos los barriles</button>
@@ -137,13 +139,14 @@
       <div class="fgrid">
         ${logged()?`<div class="panel"><h3 style="font-size:17px;margin-bottom:12px">Registrar movimiento</h3>
           <form id="movForm" class="stack" style="gap:12px">
+            ${lastMov?`<button type="button" class="chip" id="mRepeat">↻ Repetir último: <b>${esc(lastMov.cerveceria)}</b> · ${esc(estadoTxt(lastMov.estado))}</button>`:""}
             <div class="grid-form">
               <label class="field"><span class="label">Cervecería / ubicación</span><input id="m-lugar" class="up" list="dl-lugares" value="${esc(draft.lugar??b.cerveceria??"")}" required></label>
               <label class="field"><span class="label">Cerveza</span><input id="m-cerveza" class="up" list="dl-cervezas" value="${esc(draft.cerveza??b.cerveza??"")}"></label>
               <label class="field"><span class="label">Estado</span><select id="m-estado">${ESTADOS.map(e=>`<option value="${e.k}" ${e.k===(draft.estado||b.estado)?"selected":""}>${e.t}</option>`).join("")}</select></label>
             </div>
             <label class="field"><span class="label">Nota (opcional)</span><textarea id="m-nota" placeholder="Ej.: entregado a Juan, lote 0412">${esc(draft.nota||"")}</textarea></label>
-            <div class="row"><button class="btn primary" type="submit">Guardar movimiento</button><span id="movErr" class="err"></span></div>
+            <div class="row"><button class="btn primary" type="submit">Guardar movimiento</button><button class="btn" type="button" id="mScanNext">${ICON_CAM} Escanear otro barril</button><span id="movErr" class="err"></span></div>
           </form></div>`:`<div class="panel"><p style="margin:0">Para registrar un movimiento de este barril, <a href="#login" id="fLogin">ingresá con tu usuario</a>.</p></div>`}
         <div class="panel"><h3 style="font-size:17px;margin-bottom:6px">Historial</h3>
           ${rows===null?`<p style="color:var(--muted);margin:0">Cargando…</p>`:rows.length?`<ul class="hist">${rows.map(h=>`<li><time>${esc(fmt(h.fecha))}</time><div><b>${esc(h.cerveceria||"—")}</b> · ${esc(h.cerveza||"sin cerveza")}<br>${pill(h.estado)}${h.nota?` <span style="color:var(--muted)">${esc(h.nota)}</span>`:""}${h.usuario?`<div class="who">${esc(nombre(h.usuario))}</div>`:""}</div></li>`).join("")}</ul>`:`<p style="color:var(--muted);margin:0">Sin movimientos registrados.</p>`}
@@ -151,6 +154,8 @@
       </div>`;
     $("#fBack").onclick=()=>go("barriles");
     const fl=$("#fLogin"); if(fl) fl.onclick=e=>{e.preventDefault(); view="login"; fichaReturn=b.codigo; fichaCode=null; render();};
+    const rp=$("#mRepeat"); if(rp) rp.onclick=()=>{ $("#m-lugar").value=lastMov.cerveceria; $("#m-estado").value=lastMov.estado; rp.classList.add("on"); };
+    const sn=$("#mScanNext"); if(sn) sn.onclick=startScan;
     const mf=$("#movForm");
     if(mf) mf.addEventListener("submit",async e=>{
       e.preventDefault();
@@ -160,7 +165,8 @@
       if(!error) ({error}=await sb.from("barriles").update({cerveceria:mov.cerveceria, cerveza:mov.cerveza, estado:mov.estado, nota:mov.nota, actualizado:new Date().toISOString()}).eq("codigo",b.codigo));
       btn.disabled=false;
       if(error){ $("#movErr").textContent=dbErr(error); return; }
-      mf.reset(); $("#m-nota").value=""; toast("Movimiento guardado");
+      lastMov={cerveceria:mov.cerveceria, estado:mov.estado}; try{ sessionStorage.setItem("lastMov",JSON.stringify(lastMov)); }catch(_){}
+      box.dataset.code=""; toast("Movimiento guardado · "+b.codigo+" → "+mov.cerveceria);
       hist={code:null,rows:null}; await load();
     });
   }
@@ -183,6 +189,59 @@
   }
   $("#selAll").onchange=e=>{ sel = e.target.checked? new Set(barriles.map(b=>b.codigo)) : new Set(); renderEtiquetas(); };
   $("#btnImprimir").onclick=()=>window.print();
+
+  // ---------- escanear QR ----------
+  const ICON_CAM = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M4 8V5a1 1 0 0 1 1-1h3M16 4h3a1 1 0 0 1 1 1v3M20 16v3a1 1 0 0 1-1 1h-3M8 20H5a1 1 0 0 1-1-1v-3"/><path d="M8 12h8"/></svg>';
+  let lastMov=null; try{ lastMov=JSON.parse(sessionStorage.getItem("lastMov")||"null"); }catch(_){}
+  let scanStream=null, scanTimer=null, detector=null, jsqrLoading=null;
+  function codeFrom(t){
+    t=String(t||"").trim();
+    try{ const u=new URL(t); const b=u.searchParams.get("b"); if(b) return norm(b); const h=u.hash.replace(/^#/,""); if(/^[A-Za-z0-9-]+$/.test(h)) return norm(h); return null; }catch(_){}
+    return /^[A-Za-z0-9-]+$/.test(t) ? norm(t) : null;
+  }
+  function loadJsQR(){
+    if(window.jsQR) return Promise.resolve();
+    if(!jsqrLoading) jsqrLoading=new Promise((res,rej)=>{ const sc=document.createElement("script"); sc.src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"; sc.onload=res; sc.onerror=rej; document.head.appendChild(sc); });
+    return jsqrLoading;
+  }
+  async function startScan(){
+    const ov=$("#scanView"), msg=$("#scanMsg"); ov.hidden=false; msg.textContent="Apuntá la cámara al QR del barril";
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia){ msg.textContent="Este navegador no permite usar la cámara. Escribí el código en el buscador de arriba."; return; }
+    try{
+      if("BarcodeDetector" in window && !detector){ const f=await BarcodeDetector.getSupportedFormats(); if(f.includes("qr_code")) detector=new BarcodeDetector({formats:["qr_code"]}); }
+    }catch(_){}
+    if(!detector){ try{ await loadJsQR(); }catch(_){ msg.textContent="No se pudo cargar el lector. Revisá la conexión."; return; } }
+    try{ scanStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:"environment"}},audio:false}); }
+    catch(e){ msg.textContent = e&&e.name==="NotAllowedError" ? "La cámara está bloqueada. Permití el acceso a la cámara para esta página en la configuración del navegador." : "No se pudo abrir la cámara."; return; }
+    if(ov.hidden){ stopScan(); return; }
+    const v=$("#scanVideo"); v.srcObject=scanStream; try{ await v.play(); }catch(_){}
+    const c=document.createElement("canvas"), ctx=c.getContext("2d",{willReadFrequently:true});
+    const tick=async()=>{
+      if(!scanStream) return;
+      let txt=null;
+      if(v.readyState>=2 && v.videoWidth){
+        if(detector){ try{ const r=await detector.detect(v); if(r&&r[0]) txt=r[0].rawValue; }catch(_){} }
+        else if(window.jsQR){ const k=Math.min(1,720/Math.max(v.videoWidth,v.videoHeight)); c.width=Math.round(v.videoWidth*k); c.height=Math.round(v.videoHeight*k); ctx.drawImage(v,0,0,c.width,c.height); const r=jsQR(ctx.getImageData(0,0,c.width,c.height).data,c.width,c.height,{inversionAttempts:"dontInvert"}); if(r) txt=r.data; }
+      }
+      if(txt){
+        const code=codeFrom(txt);
+        if(code){ stopScan(); try{ navigator.vibrate&&navigator.vibrate(60); }catch(_){} openFicha(code); setTimeout(()=>{ const f=$("#movForm"); if(f) f.scrollIntoView({behavior:"smooth",block:"center"}); },120); return; }
+        msg.textContent="Ese QR no es de un barril. Probá con otro.";
+      }
+      scanTimer=setTimeout(tick,140);
+    };
+    tick();
+  }
+  function stopScan(){
+    clearTimeout(scanTimer);
+    if(scanStream){ scanStream.getTracks().forEach(t=>t.stop()); scanStream=null; }
+    const v=$("#scanVideo"); if(v) v.srcObject=null;
+    $("#scanView").hidden=true;
+  }
+  $("#btnScan").onclick=startScan;
+  $("#scanClose").onclick=stopScan;
+  document.addEventListener("visibilitychange",()=>{ if(document.hidden) stopScan(); });
+  document.addEventListener("keydown",e=>{ if(e.key==="Escape" && !$("#scanView").hidden) stopScan(); });
 
   // ---------- ingreso ----------
   let fichaReturn=null;
